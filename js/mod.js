@@ -1,27 +1,28 @@
 let modInfo = {
-	name: "The ??? Tree",
+	name: "Esoteric Dashboard Data Tree",
 	author: "nobody",
-	pointsName: "points",
+	pointsName: "events",
 	modFiles: ["layers.js", "tree.js"],
 
 	discordName: "",
 	discordLink: "",
-	initialStartPoints: new Decimal (10), // Used for hard resets and new players
-	offlineLimit: 1,  // In hours
+	initialStartPoints: new Decimal(10),
+	offlineLimit: 1,
 }
 
 // Set your version in num and name
 let VERSION = {
-	num: "0.0",
-	name: "Literally nothing",
+	num: "0.2",
+	name: "Ontology Optimizer",
 }
 
 let changelog = `<h1>Changelog:</h1><br>
-	<h3>v0.0</h3><br>
-		- Added things.<br>
-		- Added stuff.`
+	<h3>v0.2</h3><br>
+		- Reworked the dashboard data tree into ontologies, Codd algebra, query plans, table statistics, visualization grammars, and SIMD execution.<br>
+	<h3>v0.1</h3><br>
+		- Reworked the starter tree into dashboard data progressions.`
 
-let winText = `Congratulations! You have reached the end and beaten this game, but for now...`
+let winText = `Congratulations! Your tuples now commute through the optimizer, ontology, dashboard, database, and vectorized executor.`
 
 // If you add new functions anywhere inside of a layer, and those functions have an effect when called, add them here.
 // (The ones here are examples, all official functions are already taken care of)
@@ -42,20 +43,39 @@ function getPointGen() {
 		return new Decimal(0)
 
 	let gain = new Decimal(1)
+	if (player.tup) gain = gain.times(player.tup.points.add(1))
+	if (player.rel) gain = gain.times(player.rel.points.add(1))
+	if (player.db) gain = gain.times(player.db.points.add(1).pow(2))
+	if (player.exec) gain = gain.times(player.exec.points.add(1).pow(2))
 	return gain
 }
 
-// You can add non-layer related variables that should to into "player" and be saved here, along with default values
+// You can add non-layer related variables that should go into "player" and be saved here, along with default values
 function addedPlayerData() { return {
 }}
 
 // Display extra things at the top of the page
 var displayThings = [
+	function() {
+		if (!player.tup) return
+		return "Tuples become relations, relations become schemas, schemas become catalogs, and catalogs become databases."
+	},
+	function() {
+		if (!player.opt || !player.sem || !player.exec) return
+		return "Plans: " + formatWhole(player.opt.points)
+			+ " | Semantic layers: " + formatWhole(player.sem.points)
+			+ " | Executors: " + formatWhole(player.exec.points)
+	},
 ]
 
 // Determines when the game "ends"
 function isEndgame() {
-	return player.points.gte(new Decimal("e280000000"))
+	return player.db && player.opt && player.dash && player.sem && player.exec
+		&& player.db.points.gte(1)
+		&& player.opt.points.gte(1)
+		&& player.dash.points.gte(1)
+		&& player.sem.points.gte(1)
+		&& player.exec.points.gte(1)
 }
 
 
@@ -64,7 +84,7 @@ function isEndgame() {
 
 // Style for the background, can be a function
 var backgroundStyle = {
-
+	"background-color": "#101417",
 }
 
 // You can change this if you have things that can be messed up by long tick lengths

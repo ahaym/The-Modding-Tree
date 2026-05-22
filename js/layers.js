@@ -1,28 +1,638 @@
-addLayer("p", {
-    name: "prestige", // This is optional, only used in a few places, If absent it just uses the layer id.
-    symbol: "P", // This appears on the layer's node. Default is the id with the first letter capitalized
-    position: 0, // Horizontal position within a row. By default it uses the layer id and sorts in alphabetical order
-    startData() { return {
-        unlocked: true,
-		points: new Decimal(0),
-    }},
-    color: "#4BDC13",
-    requires: new Decimal(10), // Can be a function that takes requirement increases into account
-    resource: "prestige points", // Name of prestige currency
-    baseResource: "points", // Name of resource prestige is based on
-    baseAmount() {return player.points}, // Get the current amount of baseResource
-    type: "normal", // normal: cost to gain currency depends on amount gained. static: cost depends on how much you already have
-    exponent: 0.5, // Prestige currency exponent
-    gainMult() { // Calculate the multiplier for main currency from bonuses
-        mult = new Decimal(1)
-        return mult
-    },
-    gainExp() { // Calculate the exponent on main currency from bonuses
-        return new Decimal(1)
-    },
-    row: 0, // Row the layer is in on the tree (0 is the first row)
-    hotkeys: [
-        {key: "p", description: "P: Reset for prestige points", onPress(){if (canReset(this.layer)) doReset(this.layer)}},
-    ],
-    layerShown(){return true}
+const dataColors = {
+	primitive: "#F8F7F2",
+	relational: "#8FD694",
+	storage: "#5BC0EB",
+	optimizer: "#FDE74C",
+	semantic: "#C084FC",
+	visual: "#FF6B6B",
+	execution: "#A7F3D0",
+}
+
+function layerPoints(layer) {
+	if (!player[layer]) return new Decimal(0)
+	return player[layer].points
+}
+
+function makeEsotericLayer(config) {
+	let upgrades = {}
+	if (config.upgradeTitle) {
+		upgrades[11] = {
+			title: config.upgradeTitle,
+			description: config.upgradeDescription,
+			cost: config.upgradeCost || new Decimal(1),
+			effect() {
+				return player[this.layer].points.add(1).ln().add(1).pow(config.upgradePower || 1)
+			},
+			effectDisplay() {return format(this.effect()) + "x"},
+		}
+	}
+
+	let buyables = {}
+	if (config.buyableTitle) {
+		buyables[11] = {
+			title: config.buyableTitle,
+			cost(x) {
+				return Decimal.pow(config.buyableBase || 2, x.add(1)).times(config.buyableCost || 1).floor()
+			},
+			effect(x) {
+				return x.add(1).pow(config.buyablePower || 1)
+			},
+			display() {
+				return "You have " + getBuyableAmount(this.layer, this.id) + " " + config.buyableResource
+					+ "<br><br>Effect: " + format(buyableEffect(this.layer, this.id)) + "x"
+					+ "<br><br>Cost: " + format(tmp[this.layer].buyables[this.id].cost) + " " + tmp[this.layer].resource
+			},
+			canAfford() {
+				return player[this.layer].points.gte(tmp[this.layer].buyables[this.id].cost)
+			},
+			buy() {
+				let cost = tmp[this.layer].buyables[this.id].cost
+				player[this.layer].points = player[this.layer].points.sub(cost)
+				setBuyableAmount(this.layer, this.id, getBuyableAmount(this.layer, this.id).add(1))
+			},
+		}
+	}
+
+	addLayer(config.id, {
+		name: config.name,
+		symbol: config.symbol,
+		position: config.position,
+		startData() { return {
+			unlocked: true,
+			points: new Decimal(0),
+			best: new Decimal(0),
+			total: new Decimal(0),
+		}},
+		color: config.color,
+		requires: config.requires,
+		resource: config.resource,
+		baseResource: config.baseResource,
+		baseAmount: config.baseAmount,
+		type: config.type || "normal",
+		exponent: config.exponent || 0.5,
+		gainMult() {
+			let mult = new Decimal(1)
+			if (config.boostedBy) {
+				for (let index = 0; index < config.boostedBy.length; index++) {
+					mult = mult.times(layerPoints(config.boostedBy[index]).add(1))
+				}
+			}
+			if (config.buyableTitle) mult = mult.times(buyableEffect(this.layer, 11))
+			if (config.upgradeTitle && hasUpgrade(this.layer, 11)) mult = mult.times(upgradeEffect(this.layer, 11))
+			return mult
+		},
+		gainExp() {
+			return new Decimal(1)
+		},
+		effect() {
+			let effect = player[this.layer].points.add(1).ln().add(1).pow(config.effectPower || 1)
+			if (config.buyableTitle) effect = effect.times(buyableEffect(this.layer, 11))
+			return effect
+		},
+		effectDescription() {
+			return config.effectDescription + " by " + format(tmp[this.layer].effect) + "x"
+		},
+		row: config.row,
+		branches: config.branches,
+		layerShown() {return true},
+		tooltip() {
+			return formatWhole(player[this.layer].points) + " " + this.resource
+		},
+		tabFormat: [
+			"main-display",
+			["display-text", config.effectDescription + "."],
+			["blank", "8px"],
+			"prestige-button",
+			"resource-display",
+			["blank", "12px"],
+			["display-text", config.definition],
+			["blank", "12px"],
+			["display-text", config.flavor],
+			["blank", "12px"],
+			"buyables",
+			["blank", "12px"],
+			"upgrades",
+			["blank", "12px"],
+			"milestones",
+		],
+		upgrades,
+		buyables,
+		milestones: {
+			0: {
+				requirementDescription: formatWhole(config.milestoneAt || 5) + " " + config.resource,
+				effectDescription: config.milestoneText,
+				done() {return player[this.layer].best.gte(config.milestoneAt || 5)},
+			},
+		},
+		hotkeys: config.hotkey ? [
+			{
+				key: config.hotkey,
+				description: config.hotkey.toUpperCase() + ": reset for " + config.resource,
+				onPress(){if (canReset(this.layer)) doReset(this.layer)},
+			},
+		] : [],
+	})
+}
+
+makeEsotericLayer({
+	id: "tup",
+	name: "Tuple",
+	symbol: "Tup",
+	position: 0,
+	row: 0,
+	color: dataColors.primitive,
+	requires: new Decimal(10),
+	resource: "typed tuples",
+	baseResource: "events",
+	baseAmount() {return player.points},
+	boostedBy: ["rel", "alg", "stat", "viz", "simd"],
+	definition: "A tuple is a row with enough type information to survive both category theory and product analytics.",
+	flavor: "The dashboard begins as a dependent pair: a payload and a reason someone promised the payload was well-formed.",
+	effectDescription: "These typed tuples multiply event ingress",
+	upgradeTitle: "Yoneda Logging",
+	upgradeDescription: "Every observable row is represented by all probes into it.",
+	upgradeCost: new Decimal(3),
+	buyableTitle: "Empty Rows",
+	buyableResource: "empty rows",
+	buyableBase: 2,
+	buyablePower: 0.75,
+	milestoneAt: 10,
+	milestoneText: "The warehouse admits that nullability is a social construct.",
+	hotkey: "t",
+})
+
+makeEsotericLayer({
+	id: "rel",
+	name: "Relation",
+	symbol: "Rel",
+	position: 0,
+	row: 1,
+	color: dataColors.storage,
+	requires: new Decimal(4),
+	resource: "relations",
+	baseResource: "typed tuples",
+	baseAmount() {return layerPoints("tup")},
+	boostedBy: ["sch", "stat"],
+	branches: ["tup"],
+	definition: "A relation is a finite extension of a predicate, pretending hard enough to be a table.",
+	flavor: "Codd looks at the row store, removes the ordering, and calls the remaining anxiety algebra.",
+	effectDescription: "Relations multiply tuple normalization",
+	upgradeTitle: "First Normal Form",
+	upgradeDescription: "Ban nested attributes until the BI tool invents JSON columns again.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Candidate Keys",
+	buyableResource: "candidate keys",
+	buyableBase: 2.25,
+	buyablePower: 0.8,
+	milestoneAt: 8,
+	milestoneText: "Projection stops duplicating columns just to feel something.",
+	hotkey: "r",
+})
+
+makeEsotericLayer({
+	id: "sch",
+	name: "Schema",
+	symbol: "Sch",
+	position: 0,
+	row: 2,
+	color: dataColors.storage,
+	requires: new Decimal(3),
+	resource: "schemas",
+	baseResource: "relations",
+	baseAmount() {return layerPoints("rel")},
+	boostedBy: ["cat", "onto"],
+	branches: ["rel"],
+	definition: "A schema is a presentation of relations by names, constraints, migrations, and regrets.",
+	flavor: "DDL is just ontology with sharper edges and fewer committee meetings.",
+	effectDescription: "Schemas multiply relation materialization",
+	upgradeTitle: "Commuting Diagram DDL",
+	upgradeDescription: "Foreign keys become arrows; migration failures become non-commuting squares.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Pullback Constraints",
+	buyableResource: "pullback constraints",
+	buyableBase: 2,
+	buyablePower: 1.1,
+	milestoneAt: 6,
+	milestoneText: "Every dimension table now has a universal property.",
+	hotkey: "s",
+})
+
+makeEsotericLayer({
+	id: "cat",
+	name: "Catalog",
+	symbol: "Cat",
+	position: 0,
+	row: 3,
+	color: dataColors.storage,
+	requires: new Decimal(2),
+	resource: "catalogs",
+	baseResource: "schemas",
+	baseAmount() {return layerPoints("sch")},
+	boostedBy: ["db"],
+	branches: ["sch", "stat"],
+	definition: "A catalog is metadata pretending not to be production data.",
+	flavor: "System tables observe user tables, and immediately become user tables for the optimizer.",
+	effectDescription: "Catalogs multiply schema discovery",
+	upgradeTitle: "Information Schema Recursion",
+	upgradeDescription: "Ask the catalog about the catalog until it gives you a plan.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Statistics Objects",
+	buyableResource: "statistics objects",
+	buyableBase: 2.5,
+	buyablePower: 1,
+	milestoneAt: 4,
+	milestoneText: "The data dictionary starts emitting useful lies.",
+	hotkey: "c",
+})
+
+makeEsotericLayer({
+	id: "db",
+	name: "Database",
+	symbol: "DB",
+	position: 0,
+	row: 4,
+	color: dataColors.storage,
+	requires: new Decimal(2),
+	resource: "databases",
+	baseResource: "catalogs",
+	baseAmount() {return layerPoints("cat")},
+	boostedBy: ["exec"],
+	branches: ["cat"],
+	definition: "A database is a pact between logical purity and cache lines.",
+	flavor: "It contains relations, catalogs, locks, pages, histograms, and one query everyone is afraid to touch.",
+	effectDescription: "Databases multiply the whole storage spine",
+	upgradeTitle: "MVCC Mythology",
+	upgradeDescription: "Transactions branch the timeline and call it isolation.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Buffer Pages",
+	buyableResource: "buffer pages",
+	buyableBase: 3,
+	buyablePower: 1.2,
+	milestoneAt: 3,
+	milestoneText: "The database admits dashboards are write-heavy workloads for human attention.",
+	hotkey: "d",
+})
+
+makeEsotericLayer({
+	id: "alg",
+	name: "Codd Algebra",
+	symbol: "RA",
+	position: -2,
+	row: 1,
+	color: dataColors.relational,
+	requires: new Decimal(4),
+	resource: "algebra terms",
+	baseResource: "typed tuples",
+	baseAmount() {return layerPoints("tup")},
+	boostedBy: ["qry", "opt"],
+	branches: ["tup"],
+	definition: "Codd algebra composes selection, projection, joins, union, difference, and renaming into dashboard incantations.",
+	flavor: "The rows do not move. The symbols move, and then the invoice arrives.",
+	effectDescription: "Algebra terms multiply tuple rewriting",
+	upgradeTitle: "Rename Operator",
+	upgradeDescription: "The hardest problem in computer science becomes a primitive operation.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Join Trees",
+	buyableResource: "join trees",
+	buyableBase: 2.2,
+	buyablePower: 0.9,
+	milestoneAt: 8,
+	milestoneText: "Selection pushdown starts happening before anyone says MapReduce.",
+	hotkey: "a",
+})
+
+makeEsotericLayer({
+	id: "qry",
+	name: "Query",
+	symbol: "SQL",
+	position: -2,
+	row: 2,
+	color: dataColors.relational,
+	requires: new Decimal(3),
+	resource: "queries",
+	baseResource: "algebra terms",
+	baseAmount() {return layerPoints("alg")},
+	boostedBy: ["opt", "ds"],
+	branches: ["alg"],
+	definition: "A query is declarative intent with an implicit threat: produce this relation, but do not tell me how.",
+	flavor: "The SELECT list is calm. The FROM clause contains a small distributed systems incident.",
+	effectDescription: "Queries multiply algebra lowering",
+	upgradeTitle: "Correlated Subquery",
+	upgradeDescription: "Turn lexical scope into cardinality panic.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Common Table Expressions",
+	buyableResource: "CTEs",
+	buyableBase: 2,
+	buyablePower: 1,
+	milestoneAt: 6,
+	milestoneText: "Recursive CTEs become a sanctioned fixed point.",
+	hotkey: "q",
+})
+
+makeEsotericLayer({
+	id: "stat",
+	name: "Table Statistics",
+	symbol: "Stats",
+	position: -1,
+	row: 1,
+	color: dataColors.optimizer,
+	requires: new Decimal(4),
+	resource: "histograms",
+	baseResource: "typed tuples",
+	baseAmount() {return layerPoints("tup")},
+	boostedBy: ["cat", "opt"],
+	branches: ["tup"],
+	definition: "Table statistics summarize distributions so the optimizer can be confidently wrong.",
+	flavor: "Equi-depth histograms, most-common values, null fractions, correlation, and a prayer against skew.",
+	effectDescription: "Histograms multiply tuple sampling",
+	upgradeTitle: "NDV Estimator",
+	upgradeDescription: "Count distinct values by not counting most of them.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Most Common Values",
+	buyableResource: "MCV buckets",
+	buyableBase: 2,
+	buyablePower: 1.15,
+	milestoneAt: 8,
+	milestoneText: "The planner discovers that uniform distribution was a coping mechanism.",
+	hotkey: "h",
+})
+
+makeEsotericLayer({
+	id: "opt",
+	name: "Query Optimizer",
+	symbol: "Opt",
+	position: -2,
+	row: 3,
+	color: dataColors.optimizer,
+	requires: new Decimal(2),
+	resource: "plans",
+	baseResource: "queries",
+	baseAmount() {return layerPoints("qry")},
+	boostedBy: ["stat", "exec"],
+	branches: ["qry", "stat"],
+	definition: "A query optimizer searches equivalent algebra for the least embarrassing physical plan.",
+	flavor: "Dynamic programming, cardinality estimates, cost models, bushy joins, and one catastrophic nested loop.",
+	effectDescription: "Plans multiply query execution",
+	upgradeTitle: "Volcano Memo",
+	upgradeDescription: "Memoize equivalent expressions until exploration resembles theology.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Join Reorderings",
+	buyableResource: "join reorderings",
+	buyableBase: 2.75,
+	buyablePower: 1.05,
+	milestoneAt: 4,
+	milestoneText: "The optimizer learns to fear cross joins.",
+	hotkey: "o",
+})
+
+makeEsotericLayer({
+	id: "ds",
+	name: "Data Set",
+	symbol: "DS",
+	position: -1,
+	row: 3,
+	color: dataColors.semantic,
+	requires: new Decimal(2),
+	resource: "data sets",
+	baseResource: "queries",
+	baseAmount() {return layerPoints("qry")},
+	boostedBy: ["onto", "viz"],
+	branches: ["qry"],
+	definition: "A data set is a query result with lineage, freshness, owners, and a Slack channel.",
+	flavor: "It is not a table. It is a promise that someone else can join against it later.",
+	effectDescription: "Data sets multiply query reuse",
+	upgradeTitle: "Lineage Functor",
+	upgradeDescription: "Map every column back through transformations until accountability appears.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Materializations",
+	buyableResource: "materializations",
+	buyableBase: 2.25,
+	buyablePower: 1.1,
+	milestoneAt: 4,
+	milestoneText: "Freshness SLAs become executable guilt.",
+	hotkey: "x",
+})
+
+makeEsotericLayer({
+	id: "onto",
+	name: "Ontology",
+	symbol: "Ont",
+	position: -1,
+	row: 4,
+	color: dataColors.semantic,
+	requires: new Decimal(2),
+	resource: "ontologies",
+	baseResource: "data sets",
+	baseAmount() {return layerPoints("ds")},
+	boostedBy: ["sem"],
+	branches: ["ds", "sch"],
+	definition: "An ontology declares the business universe: entities, measures, dimensions, roles, and sanctioned ambiguity.",
+	flavor: "Every metric is a class, every dashboard filter is a morphism, every stakeholder is an inconsistent model.",
+	effectDescription: "Ontologies multiply semantic compilation",
+	upgradeTitle: "OWL-ish Metric Logic",
+	upgradeDescription: "Assert that revenue is both additive and absolutely not additive across this one dimension.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Concept Lattices",
+	buyableResource: "concept lattices",
+	buyableBase: 2.5,
+	buyablePower: 1.25,
+	milestoneAt: 3,
+	milestoneText: "The semantic graph starts rejecting contradictory KPI definitions.",
+	hotkey: "l",
+})
+
+makeEsotericLayer({
+	id: "sem",
+	name: "Semantic Layer",
+	symbol: "Sem",
+	position: -1,
+	row: 5,
+	color: dataColors.semantic,
+	requires: new Decimal(2),
+	resource: "semantic layers",
+	baseResource: "ontologies",
+	baseAmount() {return layerPoints("onto")},
+	boostedBy: ["dash"],
+	branches: ["onto"],
+	definition: "A semantic layer compiles ontology, metrics, permissions, and dialect quirks into reusable meaning.",
+	flavor: "It is a compiler whose target architecture is organizational consensus.",
+	effectDescription: "Semantic layers multiply dashboard correctness",
+	upgradeTitle: "Metric Normal Form",
+	upgradeDescription: "Every measure has exactly one canonical definition and several political aliases.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Business Terms",
+	buyableResource: "business terms",
+	buyableBase: 2,
+	buyablePower: 1.35,
+	milestoneAt: 3,
+	milestoneText: "Self-service analytics briefly means what it says.",
+	hotkey: "m",
+})
+
+makeEsotericLayer({
+	id: "viz",
+	name: "Visualization Grammar",
+	symbol: "Viz",
+	position: 1,
+	row: 1,
+	color: dataColors.visual,
+	requires: new Decimal(4),
+	resource: "marks",
+	baseResource: "typed tuples",
+	baseAmount() {return layerPoints("tup")},
+	boostedBy: ["panel", "dash"],
+	branches: ["tup"],
+	definition: "A visualization grammar maps data fields to marks, channels, scales, guides, facets, and interpretive traps.",
+	flavor: "Bar, line, area, point, bin, aggregate, encode, render, misread.",
+	effectDescription: "Marks multiply visual encoding",
+	upgradeTitle: "Grammar of Graphics",
+	upgradeDescription: "Separate data, aesthetics, geometry, statistics, scales, and uncomfortable defaults.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Scales",
+	buyableResource: "scales",
+	buyableBase: 2,
+	buyablePower: 0.95,
+	milestoneAt: 8,
+	milestoneText: "Axes stop lying unless explicitly configured to lie.",
+	hotkey: "v",
+})
+
+makeEsotericLayer({
+	id: "panel",
+	name: "Panel",
+	symbol: "Panel",
+	position: 1,
+	row: 3,
+	color: dataColors.visual,
+	requires: new Decimal(2),
+	resource: "panels",
+	baseResource: "marks",
+	baseAmount() {return layerPoints("viz")},
+	boostedBy: ["dash"],
+	branches: ["viz", "ds"],
+	definition: "A panel is a visualization plus queries, thresholds, layout constraints, and suspiciously specific colors.",
+	flavor: "It is where grammar meets pixels and business review comments.",
+	effectDescription: "Panels multiply mark composition",
+	upgradeTitle: "Facet Monad",
+	upgradeDescription: "Duplicate a chart across dimensions and pretend the result is navigation.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Encodings",
+	buyableResource: "encodings",
+	buyableBase: 2.4,
+	buyablePower: 1.15,
+	milestoneAt: 4,
+	milestoneText: "Tooltips acquire a type system.",
+	hotkey: "p",
+})
+
+makeEsotericLayer({
+	id: "dash",
+	name: "Dashboard",
+	symbol: "Dash",
+	position: 1,
+	row: 5,
+	color: dataColors.visual,
+	requires: new Decimal(2),
+	resource: "dashboards",
+	baseResource: "panels",
+	baseAmount() {return layerPoints("panel")},
+	boostedBy: ["sem"],
+	branches: ["panel", "sem"],
+	definition: "A dashboard is a small declarative operating system for management attention.",
+	flavor: "Refresh schedules, parameters, drill paths, pixel grids, RBAC, and the illusion of one truth.",
+	effectDescription: "Dashboards multiply the finished analytics surface",
+	upgradeTitle: "Crossfilter Adjunction",
+	upgradeDescription: "Every interaction has a left and right adjoint, and one of them resets the date range.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Drill Paths",
+	buyableResource: "drill paths",
+	buyableBase: 2.5,
+	buyablePower: 1.2,
+	milestoneAt: 3,
+	milestoneText: "The executive view finally respects the ontology.",
+	hotkey: "b",
+})
+
+makeEsotericLayer({
+	id: "simd",
+	name: "SIMD Instruction",
+	symbol: "SIMD",
+	position: 2,
+	row: 1,
+	color: dataColors.execution,
+	requires: new Decimal(4),
+	resource: "SIMD instructions",
+	baseResource: "typed tuples",
+	baseAmount() {return layerPoints("tup")},
+	boostedBy: ["vec", "exec"],
+	branches: ["tup"],
+	definition: "A SIMD instruction applies one operation to many lanes and calls the result obvious in hindsight.",
+	flavor: "AVX, masks, gathers, shuffles, saturated arithmetic, and the profound sadness of misalignment.",
+	effectDescription: "SIMD instructions multiply tuple scanning",
+	upgradeTitle: "Lane Mask Algebra",
+	upgradeDescription: "Predicates become bitmasks; branches become data.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Lanes",
+	buyableResource: "lanes",
+	buyableBase: 2,
+	buyablePower: 1.2,
+	milestoneAt: 8,
+	milestoneText: "The CPU stops pretending scalar code was fine.",
+	hotkey: "i",
+})
+
+makeEsotericLayer({
+	id: "vec",
+	name: "Column Vector",
+	symbol: "Vec",
+	position: 2,
+	row: 2,
+	color: dataColors.execution,
+	requires: new Decimal(3),
+	resource: "column vectors",
+	baseResource: "SIMD instructions",
+	baseAmount() {return layerPoints("simd")},
+	boostedBy: ["exec"],
+	branches: ["simd"],
+	definition: "A column vector is a cache-aligned confession that row orientation was for humans.",
+	flavor: "Validity bitmaps, dictionary encodings, offsets buffers, and enough endian anxiety to slow a scan.",
+	effectDescription: "Column vectors multiply SIMD packing",
+	upgradeTitle: "Arrow Buffer Theology",
+	upgradeDescription: "Separate values from validity and discover that nulls have physical layout.",
+	upgradeCost: new Decimal(2),
+	buyableTitle: "Cache Lines",
+	buyableResource: "cache lines",
+	buyableBase: 2.25,
+	buyablePower: 1.1,
+	milestoneAt: 6,
+	milestoneText: "The memory hierarchy accepts your offering.",
+	hotkey: "e",
+})
+
+makeEsotericLayer({
+	id: "exec",
+	name: "Vectorized Executor",
+	symbol: "Exec",
+	position: 2,
+	row: 4,
+	color: dataColors.execution,
+	requires: new Decimal(2),
+	resource: "executors",
+	baseResource: "column vectors",
+	baseAmount() {return layerPoints("vec")},
+	boostedBy: ["opt", "db"],
+	branches: ["vec", "opt", "db"],
+	definition: "A vectorized executor turns physical plans into batches of columnar work.",
+	flavor: "Tight loops, selection vectors, late materialization, fused kernels, and profiles full of cache misses.",
+	effectDescription: "Executors multiply physical execution",
+	upgradeTitle: "Late Materialization",
+	upgradeDescription: "Do not fetch the expensive bytes until the predicate has earned them.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Operator Kernels",
+	buyableResource: "operator kernels",
+	buyableBase: 2.75,
+	buyablePower: 1.3,
+	milestoneAt: 3,
+	milestoneText: "The plan is no longer interpreted; it is performed.",
+	hotkey: "z",
 })
