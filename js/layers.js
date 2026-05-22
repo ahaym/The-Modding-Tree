@@ -24,6 +24,7 @@ function makeAnalyticsLayer(config) {
 	const passivePercent = passiveRate * 100
 	const milestoneTarget = new Decimal(config.milestoneAt || 5).times(Decimal.pow(10, config.row + 1))
 	const buyableCostScale = config.buyableCost || Decimal.pow(10, config.row + 1)
+	const upgradeCostScale = config.upgradeCostScale || Decimal.pow(10, config.row + 1)
 	let upgrades = {}
 	if (config.upgradeTitle) {
 		upgrades[11] = {
@@ -33,7 +34,7 @@ function makeAnalyticsLayer(config) {
 				+ " gain based on your current " + config.resource + "."
 				+ "<br><br>Also unlocks passive gain for this layer: " + passivePercent
 				+ "% of reset gain per second.",
-			cost: config.upgradeCost || new Decimal(1),
+			cost: new Decimal(config.upgradeCost || 1).times(upgradeCostScale),
 			effect() {
 				return player[this.layer].points.add(1).ln().add(1).pow(config.upgradePower || 1)
 			},
@@ -113,7 +114,12 @@ function makeAnalyticsLayer(config) {
 		},
 		row: config.row,
 		branches: config.branches,
-		layerShown() {return true},
+		layerShown() {
+			if (config.row === 0) return true
+			let data = player[config.id]
+			if (data && (data.points.gt(0) || data.best.gt(0) || data.total.gt(0) || data.upgrades.length > 0)) return true
+			return new Decimal(config.baseAmount()).gte(config.requires)
+		},
 		tooltip() {
 			return formatWhole(player[this.layer].points) + " " + this.resource
 		},
