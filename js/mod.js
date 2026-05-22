@@ -43,10 +43,10 @@ function getPointGen() {
 		return new Decimal(0)
 
 	let gain = new Decimal(1)
-	if (player.row) gain = gain.times(player.row.points.add(1))
-	if (player.rel) gain = gain.times(player.rel.points.add(1))
-	if (player.db) gain = gain.times(player.db.points.add(1).pow(2))
-	if (player.exec) gain = gain.times(player.exec.points.add(1).pow(2))
+	if (player.row) gain = gain.times(player.row.points.add(10).log(10))
+	if (player.rel) gain = gain.times(player.rel.points.add(10).log(10))
+	if (player.db) gain = gain.times(player.db.points.add(10).log(10).pow(1.5))
+	if (player.exec) gain = gain.times(player.exec.points.add(10).log(10).pow(1.5))
 	return gain
 }
 
@@ -61,23 +61,25 @@ var displayThings = [
 		return "Events become rows, rows become relations, relations become schemas, schemas become catalogs, and catalogs become databases."
 	},
 	function() {
-		if (!player.opt || !player.sem || !player.onto || !player.exec) return
+		if (!player.opt || !player.sem || !player.onto || !player.exec || !player.dist) return
 		return "Plans: " + formatWhole(player.opt.points)
 			+ " | Semantic layers: " + formatWhole(player.sem.points)
 			+ " | Ontologies: " + formatWhole(player.onto.points)
+			+ " | Distributed systems: " + formatWhole(player.dist.points)
 			+ " | Executors: " + formatWhole(player.exec.points)
 	},
 ]
 
 // Determines when the game "ends"
 function isEndgame() {
-	return player.db && player.opt && player.dash && player.sem && player.onto && player.exec
+	return player.db && player.opt && player.dash && player.sem && player.onto && player.exec && player.dist
 		&& player.db.points.gte(100)
 		&& player.opt.points.gte(100)
 		&& player.dash.points.gte(100)
 		&& player.sem.points.gte(100)
 		&& player.onto.points.gte(100)
 		&& player.exec.points.gte(100)
+		&& player.dist.points.gte(100)
 }
 
 

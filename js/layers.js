@@ -2,6 +2,8 @@ const dataColors = {
 	primitive: "#F8F7F2",
 	relational: "#8FD694",
 	storage: "#5BC0EB",
+	tableFormat: "#38BDF8",
+	network: "#F97316",
 	optimizer: "#FDE74C",
 	semantic: "#C084FC",
 	visual: "#FF6B6B",
@@ -13,8 +15,12 @@ function layerPoints(layer) {
 	return player[layer].points
 }
 
+function layerBoost(layer, power = 1) {
+	return layerPoints(layer).add(10).log(10).pow(power)
+}
+
 function makeAnalyticsLayer(config) {
-	const passiveRate = config.passiveGeneration || 0.05
+	const passiveRate = config.passiveGeneration || 0.001
 	const passivePercent = passiveRate * 100
 	const milestoneTarget = new Decimal(config.milestoneAt || 5).times(Decimal.pow(10, config.row + 1))
 	const buyableCostScale = config.buyableCost || Decimal.pow(10, config.row + 1)
@@ -82,7 +88,7 @@ function makeAnalyticsLayer(config) {
 			let mult = new Decimal(1)
 			if (config.boostedBy) {
 				for (let index = 0; index < config.boostedBy.length; index++) {
-					mult = mult.times(layerPoints(config.boostedBy[index]).add(1))
+					mult = mult.times(layerBoost(config.boostedBy[index]))
 				}
 			}
 			if (config.buyableTitle) mult = mult.times(buyableEffect(this.layer, 11))
@@ -181,7 +187,7 @@ makeAnalyticsLayer({
 	symbol: "Rel",
 	position: 0,
 	row: 1,
-	color: dataColors.storage,
+	color: dataColors.tableFormat,
 	requires: new Decimal(4),
 	resource: "relations",
 	baseResource: "rows",
@@ -270,8 +276,8 @@ makeAnalyticsLayer({
 	resource: "databases",
 	baseResource: "catalogs",
 	baseAmount() {return layerPoints("cat")},
-	boostedBy: ["exec", "onto"],
-	branches: ["cat", "onto"],
+	boostedBy: ["fmt", "exec", "dist", "onto"],
+	branches: ["cat", "fmt", "exec", "dist", "onto"],
 	definition: "A database combines logical models with storage, transactions, indexes, catalogs, and execution engines.",
 	flavor: "Relations are clean; databases add pages, locks, WAL, compaction, memory pressure, and operational reality.",
 	effectDescription: "Databases multiply the whole storage spine",
@@ -285,6 +291,34 @@ makeAnalyticsLayer({
 	milestoneAt: 3,
 	milestoneText: "Operational constraints now matter as much as logical correctness.",
 	hotkey: "d",
+})
+
+makeAnalyticsLayer({
+	id: "fmt",
+	name: "Table Format",
+	symbol: "Fmt",
+	position: 1,
+	row: 1,
+	color: dataColors.storage,
+	requires: new Decimal(2),
+	resource: "table formats",
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
+	boostedBy: ["flight", "db", "exec"],
+	branches: ["row", "flight", "db", "exec"],
+	definition: "A table format defines how rows are stored for analytics: files, row groups, column chunks, statistics, schema evolution, and snapshots.",
+	flavor: "Parquet and ORC make scans cheap with column chunks and compression; Iceberg and Delta add manifests, snapshots, partitions, and commit protocols.",
+	effectDescription: "Table formats multiply storage interoperability",
+	upgradeTitle: "Predicate Pushdown",
+	upgradeDescription: "Use row-group and column statistics to skip files, stripes, and pages before the executor reads bytes.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Row Group",
+	buyableResource: "row groups",
+	buyableBase: 2.5,
+	buyablePower: 1.2,
+	milestoneAt: 3,
+	milestoneText: "Compression codecs and min/max stats become part of query planning.",
+	hotkey: "g",
 })
 
 makeAnalyticsLayer({
@@ -494,8 +528,8 @@ makeAnalyticsLayer({
 	resource: "ontologies",
 	baseResource: "semantic layers",
 	baseAmount() {return layerPoints("sem")},
-	boostedBy: ["db", "dash"],
-	branches: ["sem", "sch", "db"],
+	boostedBy: ["db", "dist", "dash"],
+	branches: ["sem", "sch", "db", "dist"],
 	definition: "An enterprise ontology specifies exchange semantics for systems, links, information specs, functions, organizations, facilities, and architecture metadata.",
 	flavor: "RDF triples carry identifiers; OWL axioms constrain meaning; temporal parts track change without pretending a renamed system is a new thing.",
 	effectDescription: "Ontologies multiply semantic interoperability",
@@ -578,8 +612,8 @@ makeAnalyticsLayer({
 	resource: "dashboards",
 	baseResource: "panels",
 	baseAmount() {return layerPoints("panel")},
-	boostedBy: ["sem"],
-	branches: ["panel", "sem"],
+	boostedBy: ["sem", "dist"],
+	branches: ["panel", "sem", "dist"],
 	definition: "A dashboard assembles panels, filters, parameters, drill paths, access control, and refresh schedules.",
 	flavor: "The surface is visual, but the product is a workflow for monitoring, diagnosis, and decision making.",
 	effectDescription: "Dashboards multiply the finished analytics surface",
@@ -662,8 +696,8 @@ makeAnalyticsLayer({
 	resource: "executors",
 	baseResource: "column vectors",
 	baseAmount() {return layerPoints("vec")},
-	boostedBy: ["opt", "db"],
-	branches: ["vec", "opt", "db"],
+	boostedBy: ["opt", "db", "fmt", "dist"],
+	branches: ["vec", "opt", "db", "fmt", "dist"],
 	definition: "A vectorized executor evaluates physical plans in column batches instead of tuple-at-a-time loops.",
 	flavor: "Tight loops, selection vectors, late materialization, fused kernels, and profiles full of cache misses.",
 	effectDescription: "Executors multiply physical execution",
@@ -677,4 +711,88 @@ makeAnalyticsLayer({
 	milestoneAt: 3,
 	milestoneText: "The plan is no longer interpreted; it is performed.",
 	hotkey: "z",
+})
+
+makeAnalyticsLayer({
+	id: "net",
+	name: "Network Link",
+	symbol: "Net",
+	position: 2,
+	row: 1,
+	color: dataColors.network,
+	requires: new Decimal(2),
+	resource: "network links",
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
+	boostedBy: ["flight", "dist"],
+	branches: ["row", "flight", "dist"],
+	definition: "A network link is the primitive transport path for data: endpoints, packets, latency, bandwidth, loss, and routing.",
+	flavor: "Before clusters coordinate, bytes cross links with timeouts, retries, congestion, backpressure, and inconvenient packet loss.",
+	effectDescription: "Network links multiply data movement",
+	upgradeTitle: "Flow Control",
+	upgradeDescription: "Apply windows, acknowledgements, retries, and backpressure so fast senders do not overwhelm receivers.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Communication Link",
+	buyableResource: "communication links",
+	buyableBase: 2.75,
+	buyablePower: 1.2,
+	milestoneAt: 3,
+	milestoneText: "Timeouts become configuration, not folklore.",
+	hotkey: "w",
+})
+
+makeAnalyticsLayer({
+	id: "flight",
+	name: "Flight Protocol",
+	symbol: "Flight",
+	position: 2,
+	row: 2,
+	color: dataColors.network,
+	requires: new Decimal(2),
+	resource: "Flight protocols",
+	baseResource: "table formats and network links",
+	baseAmount() {return layerPoints("fmt").min(layerPoints("net"))},
+	boostedBy: ["dist"],
+	branches: ["fmt", "net", "dist"],
+	definition: "A Flight-style protocol combines columnar table formats with network transport for high-throughput data exchange.",
+	flavor: "Schema, record batches, endpoints, tickets, streams, and backpressure turn stored columns into network-native analytics payloads.",
+	effectDescription: "Flight protocols multiply table transport",
+	upgradeTitle: "Columnar RPC",
+	upgradeDescription: "Move typed record batches over long-lived streams instead of serializing rows one request at a time.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "Record Batch Stream",
+	buyableResource: "record batch streams",
+	buyableBase: 2.75,
+	buyablePower: 1.25,
+	milestoneAt: 3,
+	milestoneText: "Table format and transport agree on schema, batches, and flow control.",
+	hotkey: "y",
+})
+
+makeAnalyticsLayer({
+	id: "dist",
+	name: "Distributed System",
+	symbol: "CAP",
+	position: 2,
+	row: 6,
+	color: dataColors.execution,
+	requires: new Decimal(2),
+	resource: "distributed systems",
+	baseResource: "Flight protocols and executors",
+	baseAmount() {return layerPoints("flight").min(layerPoints("exec"))},
+	boostedBy: ["dash", "onto"],
+	branches: ["flight", "exec", "dash", "onto"],
+	definition: "A distributed system coordinates Flight-style data exchange and distributed compute across membership, scheduling, replication, failure detection, and recovery.",
+	flavor: "CAP theorem frames the hard choice during partitions; MapReduce jobs run inside the cluster as distributed batch execution.",
+	effectDescription: "Distributed systems multiply cluster-scale analytics",
+	upgradeTitle: "Consensus Log",
+	upgradeDescription: "Use replicated logs, leader election, and quorum acknowledgements to keep nodes ordered through failures.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "MapReduce Job",
+	buyableResource: "MapReduce jobs",
+	buyableBase: 3,
+	buyablePower: 1.25,
+	milestoneAt: 3,
+	milestoneText: "Shuffle partitioning and straggler mitigation become part of distributed execution.",
+	hotkey: "u",
 })

@@ -1,12 +1,12 @@
 var dashboardTree = [
 	["gap-1", "gap-2", "row", "gap-3", "gap-4"],
-	["alg", "stat", "rel", "viz", "simd"],
-	["qry", "gap-5", "sch", "gap-6", "vec"],
+	["alg", "stat", "rel", "fmt", "net", "simd"],
+	["qry", "gap-5", "sch", "gap-6", "flight", "vec"],
 	["opt", "ds", "cat", "panel", "gap-7"],
 	["gap-8", "met", "db", "gap-9", "exec"],
-	["gap-10", "sem", "gap-11", "gap-12", "gap-13"],
-	["gap-14", "gap-15", "gap-16", "dash", "gap-17"],
-	["gap-18", "onto", "gap-19", "gap-20", "gap-21"],
+	["gap-10", "sem", "gap-11", "gap-12", "gap-13", "gap-14"],
+	["gap-15", "gap-16", "gap-17", "dash", "dist", "gap-18"],
+	["gap-19", "onto", "gap-20", "gap-22", "gap-23", "gap-24"],
 ]
 
 var layoutInfo = {
@@ -17,7 +17,7 @@ var layoutInfo = {
     treeLayout: dashboardTree
 }
 
-for (let index = 1; index <= 21; index++) {
+for (let index = 1; index <= 24; index++) {
 	addNode("gap-" + index, {
 		layerShown: "ghost",
 	})
