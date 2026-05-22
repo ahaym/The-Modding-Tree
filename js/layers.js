@@ -14,16 +14,24 @@ function layerPoints(layer) {
 }
 
 function makeAnalyticsLayer(config) {
+	const passiveRate = config.passiveGeneration || 0.05
+	const passivePercent = passiveRate * 100
+	const milestoneTarget = new Decimal(config.milestoneAt || 5).times(Decimal.pow(10, config.row + 1))
+	const buyableCostScale = config.buyableCost || Decimal.pow(10, config.row + 1)
 	let upgrades = {}
 	if (config.upgradeTitle) {
 		upgrades[11] = {
 			title: config.upgradeTitle,
-			description: config.upgradeDescription,
+			description: config.upgradeDescription
+				+ "<br><br>Effect: multiplies " + config.resource
+				+ " gain based on your current " + config.resource + "."
+				+ "<br><br>Also unlocks passive gain for this layer: " + passivePercent
+				+ "% of reset gain per second.",
 			cost: config.upgradeCost || new Decimal(1),
 			effect() {
 				return player[this.layer].points.add(1).ln().add(1).pow(config.upgradePower || 1)
 			},
-			effectDisplay() {return format(this.effect()) + "x"},
+			effectDisplay() {return format(this.effect()) + "x " + config.resource + " gain"},
 		}
 	}
 
@@ -32,14 +40,14 @@ function makeAnalyticsLayer(config) {
 		buyables[11] = {
 			title: config.buyableTitle,
 			cost(x) {
-				return Decimal.pow(config.buyableBase || 2, x.add(1)).times(config.buyableCost || 1).floor()
+				return Decimal.pow(config.buyableBase || 2, x.add(1)).times(buyableCostScale).floor()
 			},
 			effect(x) {
 				return x.add(1).pow(config.buyablePower || 1)
 			},
 			display() {
 				return "You have " + getBuyableAmount(this.layer, this.id) + " " + config.buyableResource
-					+ "<br><br>Effect: " + format(buyableEffect(this.layer, this.id)) + "x"
+					+ "<br><br>Effect: " + format(buyableEffect(this.layer, this.id)) + "x " + tmp[this.layer].resource + " gain"
 					+ "<br><br>Cost: " + format(tmp[this.layer].buyables[this.id].cost) + " " + tmp[this.layer].resource
 			},
 			canAfford() {
@@ -92,6 +100,11 @@ function makeAnalyticsLayer(config) {
 		effectDescription() {
 			return config.effectDescription + " by " + format(tmp[this.layer].effect) + "x"
 		},
+		passiveGeneration() {
+			if (!tmp[config.id].baseAmount || tmp[config.id].baseAmount.lt(tmp[config.id].requires)) return new Decimal(0)
+			if (!hasUpgrade(config.id, 11)) return new Decimal(0)
+			return new Decimal(passiveRate)
+		},
 		row: config.row,
 		branches: config.branches,
 		layerShown() {return true},
@@ -101,6 +114,7 @@ function makeAnalyticsLayer(config) {
 		tabFormat: [
 			"main-display",
 			["display-text", config.effectDescription + "."],
+			["display-text", "Passive: buy this layer's upgrade to gain " + passivePercent + "% of reset gain each second while the reset requirement is met."],
 			["blank", "8px"],
 			"prestige-button",
 			"resource-display",
@@ -119,9 +133,9 @@ function makeAnalyticsLayer(config) {
 		buyables,
 		milestones: {
 			0: {
-				requirementDescription: formatWhole(config.milestoneAt || 5) + " " + config.resource,
+				requirementDescription() {return formatWhole(milestoneTarget) + " " + config.resource},
 				effectDescription: config.milestoneText,
-				done() {return player[this.layer].best.gte(config.milestoneAt || 5)},
+				done() {return player[this.layer].best.gte(milestoneTarget)},
 			},
 		},
 		hotkeys: config.hotkey ? [
@@ -135,25 +149,25 @@ function makeAnalyticsLayer(config) {
 }
 
 makeAnalyticsLayer({
-	id: "tup",
-	name: "Tuple",
-	symbol: "Tup",
+	id: "row",
+	name: "Row",
+	symbol: "Row",
 	position: 0,
 	row: 0,
 	color: dataColors.primitive,
 	requires: new Decimal(10),
-	resource: "typed tuples",
+	resource: "rows",
 	baseResource: "events",
 	baseAmount() {return player.points},
 	boostedBy: ["rel", "alg", "stat", "viz", "simd"],
-	definition: "A tuple is a typed row: values, attribute names, nullability, and enough shape to enter relational systems.",
-	flavor: "Raw events become rows once ingestion assigns types, timestamps, identifiers, and failure modes.",
-	effectDescription: "These typed tuples multiply event ingress",
-	upgradeTitle: "Schema-on-Write",
-	upgradeDescription: "Validate fields during ingestion instead of rediscovering malformed events in every downstream query.",
+	definition: "A row is one event shaped into tabular form: values aligned to attributes and ready for analytics systems.",
+	flavor: "Raw events become rows once ingestion assigns timestamps, identifiers, source names, and failure modes.",
+	effectDescription: "Rows multiply event ingress",
+	upgradeTitle: "Online Ingestion",
+	upgradeDescription: "Continuously ingest event streams into rows instead of relying on manual batch resets.",
 	upgradeCost: new Decimal(3),
-	buyableTitle: "Empty Rows",
-	buyableResource: "empty rows",
+	buyableTitle: "Typed Tuple",
+	buyableResource: "typed tuples",
 	buyableBase: 2,
 	buyablePower: 0.75,
 	milestoneAt: 10,
@@ -170,10 +184,10 @@ makeAnalyticsLayer({
 	color: dataColors.storage,
 	requires: new Decimal(4),
 	resource: "relations",
-	baseResource: "typed tuples",
-	baseAmount() {return layerPoints("tup")},
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
 	boostedBy: ["sch", "stat"],
-	branches: ["tup"],
+	branches: ["row"],
 	definition: "A relation is a set of tuples over named attributes, the formal core behind tables and query results.",
 	flavor: "Codd removes physical row order and leaves keys, dependencies, joins, projection, and a lot of useful discipline.",
 	effectDescription: "Relations multiply tuple normalization",
@@ -228,8 +242,8 @@ makeAnalyticsLayer({
 	resource: "catalogs",
 	baseResource: "schemas",
 	baseAmount() {return layerPoints("sch")},
-	boostedBy: ["db"],
-	branches: ["sch", "stat"],
+	boostedBy: ["db", "met", "sem"],
+	branches: ["sch", "stat", "met", "sem"],
 	definition: "A catalog stores metadata about schemas, tables, columns, indexes, statistics, privileges, and lineage.",
 	flavor: "Catalog data is operational: query planners, governance tools, and BI explorers all depend on it.",
 	effectDescription: "Catalogs multiply schema discovery",
@@ -256,8 +270,8 @@ makeAnalyticsLayer({
 	resource: "databases",
 	baseResource: "catalogs",
 	baseAmount() {return layerPoints("cat")},
-	boostedBy: ["exec"],
-	branches: ["cat"],
+	boostedBy: ["exec", "onto"],
+	branches: ["cat", "onto"],
 	definition: "A database combines logical models with storage, transactions, indexes, catalogs, and execution engines.",
 	flavor: "Relations are clean; databases add pages, locks, WAL, compaction, memory pressure, and operational reality.",
 	effectDescription: "Databases multiply the whole storage spine",
@@ -282,10 +296,10 @@ makeAnalyticsLayer({
 	color: dataColors.relational,
 	requires: new Decimal(4),
 	resource: "algebra terms",
-	baseResource: "typed tuples",
-	baseAmount() {return layerPoints("tup")},
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
 	boostedBy: ["qry", "opt"],
-	branches: ["tup"],
+	branches: ["row"],
 	definition: "Relational algebra composes selection, projection, joins, union, difference, aggregation, and renaming.",
 	flavor: "SQL gets lowered into algebra so equivalence rules can simplify and reorder work.",
 	effectDescription: "Algebra terms multiply tuple rewriting",
@@ -338,10 +352,10 @@ makeAnalyticsLayer({
 	color: dataColors.optimizer,
 	requires: new Decimal(4),
 	resource: "histograms",
-	baseResource: "typed tuples",
-	baseAmount() {return layerPoints("tup")},
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
 	boostedBy: ["cat", "opt"],
-	branches: ["tup"],
+	branches: ["row"],
 	definition: "Table statistics summarize cardinality, value distributions, null fractions, correlation, and data skew.",
 	flavor: "Histograms, most-common values, and distinct-count estimates are small summaries with large consequences.",
 	effectDescription: "Histograms multiply tuple sampling",
@@ -396,7 +410,7 @@ makeAnalyticsLayer({
 	resource: "data sets",
 	baseResource: "queries",
 	baseAmount() {return layerPoints("qry")},
-	boostedBy: ["onto", "viz"],
+	boostedBy: ["met", "viz"],
 	branches: ["qry"],
 	definition: "A data set is a governed query result with lineage, freshness, owners, documentation, and consumers.",
 	flavor: "It is not just a table; it is a reusable contract for downstream analytics.",
@@ -414,31 +428,31 @@ makeAnalyticsLayer({
 })
 
 makeAnalyticsLayer({
-	id: "onto",
-	name: "Business Ontology",
-	symbol: "Biz",
+	id: "met",
+	name: "Metric",
+	symbol: "Met",
 	position: -1,
 	row: 4,
 	color: dataColors.semantic,
 	requires: new Decimal(2),
-	resource: "business concepts",
+	resource: "metrics",
 	baseResource: "data sets",
 	baseAmount() {return layerPoints("ds")},
-	boostedBy: ["sem"],
-	branches: ["ds", "sch"],
-	definition: "A business ontology names entities, events, measures, dimensions, ownership, and allowed relationships.",
-	flavor: "Customer, account, booking, revenue, churn, active user: each term needs a definition before the chart does.",
-	effectDescription: "Business concepts multiply semantic compilation",
-	upgradeTitle: "Entity Resolution",
-	upgradeDescription: "Connect source-system identifiers into stable business entities before metrics depend on them.",
+	boostedBy: ["cat", "onto", "sem"],
+	branches: ["ds", "cat"],
+	definition: "A metric defines a measure, grain, filters, valid dimensions, owner, freshness target, and business meaning.",
+	flavor: "Revenue, conversion, churn, retention, active users: each is a query plus a contract about how it may be grouped.",
+	effectDescription: "Metrics multiply semantic compilation",
+	upgradeTitle: "Metric Contract",
+	upgradeDescription: "Define grain, filters, owners, allowed dimensions, and freshness expectations for each measure.",
 	upgradeCost: new Decimal(1),
-	buyableTitle: "Metric Definitions",
-	buyableResource: "metric definitions",
+	buyableTitle: "KPI Definitions",
+	buyableResource: "KPI definitions",
 	buyableBase: 2.5,
 	buyablePower: 1.25,
 	milestoneAt: 3,
 	milestoneText: "The model starts rejecting contradictory KPI definitions.",
-	hotkey: "l",
+	hotkey: "m",
 })
 
 makeAnalyticsLayer({
@@ -450,15 +464,15 @@ makeAnalyticsLayer({
 	color: dataColors.semantic,
 	requires: new Decimal(2),
 	resource: "semantic layers",
-	baseResource: "business concepts",
-	baseAmount() {return layerPoints("onto")},
-	boostedBy: ["dash"],
-	branches: ["onto"],
+	baseResource: "metrics",
+	baseAmount() {return layerPoints("met")},
+	boostedBy: ["cat", "dash", "onto"],
+	branches: ["met", "cat"],
 	definition: "A semantic layer exposes governed metrics, dimensions, permissions, and SQL generation across tools.",
-	flavor: "It turns agreed business definitions into reusable queries for dashboards, notebooks, and APIs.",
+	flavor: "It turns agreed metric contracts into reusable queries for dashboards, notebooks, APIs, and downstream ontology mappings.",
 	effectDescription: "Semantic layers multiply dashboard correctness",
-	upgradeTitle: "Metric Contract",
-	upgradeDescription: "Define grain, filters, owners, allowed dimensions, and freshness expectations for each measure.",
+	upgradeTitle: "Semantic Compilation",
+	upgradeDescription: "Compile metrics, dimensions, access policies, and SQL dialect rules into queryable models.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Business Terms",
 	buyableResource: "business terms",
@@ -466,7 +480,35 @@ makeAnalyticsLayer({
 	buyablePower: 1.35,
 	milestoneAt: 3,
 	milestoneText: "Self-service analytics briefly means what it says.",
-	hotkey: "m",
+	hotkey: "l",
+})
+
+makeAnalyticsLayer({
+	id: "onto",
+	name: "Enterprise Ontology",
+	symbol: "OWL",
+	position: -1,
+	row: 7,
+	color: dataColors.semantic,
+	requires: new Decimal(2),
+	resource: "ontologies",
+	baseResource: "semantic layers",
+	baseAmount() {return layerPoints("sem")},
+	boostedBy: ["db", "dash"],
+	branches: ["sem", "sch", "db"],
+	definition: "An enterprise ontology specifies exchange semantics for systems, links, information specs, functions, organizations, facilities, and architecture metadata.",
+	flavor: "RDF triples carry identifiers; OWL axioms constrain meaning; temporal parts track change without pretending a renamed system is a new thing.",
+	effectDescription: "Ontologies multiply semantic interoperability",
+	upgradeTitle: "4D Extensional Identity",
+	upgradeDescription: "Identify entities by their physical and temporal extent, so names, versions, ownership, and classifications can change without losing identity.",
+	upgradeCost: new Decimal(1),
+	buyableTitle: "RDF/OWL Axioms",
+	buyableResource: "RDF/OWL axioms",
+	buyableBase: 2.5,
+	buyablePower: 1.3,
+	milestoneAt: 3,
+	milestoneText: "Architecture metadata, information specifications, systems, and activities share exchange semantics.",
+	hotkey: "n",
 })
 
 makeAnalyticsLayer({
@@ -478,10 +520,10 @@ makeAnalyticsLayer({
 	color: dataColors.visual,
 	requires: new Decimal(4),
 	resource: "marks",
-	baseResource: "typed tuples",
-	baseAmount() {return layerPoints("tup")},
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
 	boostedBy: ["panel", "dash"],
-	branches: ["tup"],
+	branches: ["row"],
 	definition: "A visualization grammar maps fields to marks, channels, scales, guides, facets, transforms, and layouts.",
 	flavor: "Vega-Lite, ggplot, and similar grammars make chart construction explicit enough to reason about.",
 	effectDescription: "Marks multiply visual encoding",
@@ -530,7 +572,7 @@ makeAnalyticsLayer({
 	name: "Dashboard",
 	symbol: "Dash",
 	position: 1,
-	row: 5,
+	row: 6,
 	color: dataColors.visual,
 	requires: new Decimal(2),
 	resource: "dashboards",
@@ -562,10 +604,10 @@ makeAnalyticsLayer({
 	color: dataColors.execution,
 	requires: new Decimal(4),
 	resource: "SIMD instructions",
-	baseResource: "typed tuples",
-	baseAmount() {return layerPoints("tup")},
+	baseResource: "rows",
+	baseAmount() {return layerPoints("row")},
 	boostedBy: ["vec", "exec"],
-	branches: ["tup"],
+	branches: ["row"],
 	definition: "A SIMD instruction applies one operation across multiple data lanes in a CPU vector register.",
 	flavor: "AVX, masks, gathers, shuffles, predicate vectors, and the cost of misaligned memory.",
 	effectDescription: "SIMD instructions multiply tuple scanning",
