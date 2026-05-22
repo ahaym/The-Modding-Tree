@@ -114,12 +114,7 @@ function makeAnalyticsLayer(config) {
 		},
 		row: config.row,
 		branches: config.branches,
-		layerShown() {
-			if (config.row === 0) return true
-			let data = player[config.id]
-			if (data && (data.points.gt(0) || data.best.gt(0) || data.total.gt(0) || data.upgrades.length > 0)) return true
-			return new Decimal(config.baseAmount()).gte(config.requires)
-		},
+		layerShown() {return true},
 		tooltip() {
 			return formatWhole(player[this.layer].points) + " " + this.resource
 		},
