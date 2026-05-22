@@ -38,15 +38,27 @@ function canGenPoints(){
 }
 
 // Calculate points/sec!
+function tmpLayerEffect(layer, power = 1) {
+	if (!tmp[layer] || !tmp[layer].effect) return new Decimal(1)
+	return tmp[layer].effect.pow(power)
+}
+
+function rowEventSourceGain() {
+	if (!tmp.row || !tmp.row.buyables || !tmp.row.buyables[12]) return new Decimal(0)
+	if (!tmp.row.buyables[12].effect) return new Decimal(0)
+	return tmp.row.buyables[12].effect
+}
+
 function getPointGen() {
 	if(!canGenPoints())
 		return new Decimal(0)
 
-	let gain = new Decimal(1)
-	if (player.row) gain = gain.times(player.row.points.add(10).log(10))
-	if (player.rel) gain = gain.times(player.rel.points.add(10).log(10))
-	if (player.db) gain = gain.times(player.db.points.add(10).log(10).pow(1.5))
-	if (player.exec) gain = gain.times(player.exec.points.add(10).log(10).pow(1.5))
+	let gain = new Decimal(1).add(rowEventSourceGain())
+	if (player.row) gain = gain.times(tmpLayerEffect("row"))
+	if (player.row && hasUpgrade("row", 12)) gain = gain.times(upgradeEffect("row", 12))
+	if (player.rel) gain = gain.times(tmpLayerEffect("rel"))
+	if (player.db) gain = gain.times(tmpLayerEffect("db", 1.25))
+	if (player.exec) gain = gain.times(tmpLayerEffect("exec", 1.25))
 	return gain
 }
 
