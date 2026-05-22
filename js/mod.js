@@ -1,5 +1,5 @@
 let modInfo = {
-	name: "Esoteric Dashboard Data Tree",
+	name: "Analytics Systems Tree",
 	author: "nobody",
 	pointsName: "events",
 	modFiles: ["layers.js", "tree.js"],
@@ -13,16 +13,16 @@ let modInfo = {
 // Set your version in num and name
 let VERSION = {
 	num: "0.2",
-	name: "Ontology Optimizer",
+	name: "Analytics Systems",
 }
 
 let changelog = `<h1>Changelog:</h1><br>
 	<h3>v0.2</h3><br>
-		- Reworked the dashboard data tree into ontologies, Codd algebra, query plans, table statistics, visualization grammars, and SIMD execution.<br>
+		- Reworked the dashboard data tree into relational algebra, data systems, table statistics, semantic models, business analytics, visualization grammars, and SIMD execution.<br>
 	<h3>v0.1</h3><br>
 		- Reworked the starter tree into dashboard data progressions.`
 
-let winText = `Congratulations! Your tuples now commute through the optimizer, ontology, dashboard, database, and vectorized executor.`
+let winText = `Congratulations! Your tuples now power the optimizer, semantic layer, dashboard, database, and vectorized executor.`
 
 // If you add new functions anywhere inside of a layer, and those functions have an effect when called, add them here.
 // (The ones here are examples, all official functions are already taken care of)

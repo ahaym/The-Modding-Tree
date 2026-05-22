@@ -13,7 +13,7 @@ function layerPoints(layer) {
 	return player[layer].points
 }
 
-function makeEsotericLayer(config) {
+function makeAnalyticsLayer(config) {
 	let upgrades = {}
 	if (config.upgradeTitle) {
 		upgrades[11] = {
@@ -134,7 +134,7 @@ function makeEsotericLayer(config) {
 	})
 }
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "tup",
 	name: "Tuple",
 	symbol: "Tup",
@@ -146,11 +146,11 @@ makeEsotericLayer({
 	baseResource: "events",
 	baseAmount() {return player.points},
 	boostedBy: ["rel", "alg", "stat", "viz", "simd"],
-	definition: "A tuple is a row with enough type information to survive both category theory and product analytics.",
-	flavor: "The dashboard begins as a dependent pair: a payload and a reason someone promised the payload was well-formed.",
+	definition: "A tuple is a typed row: values, attribute names, nullability, and enough shape to enter relational systems.",
+	flavor: "Raw events become rows once ingestion assigns types, timestamps, identifiers, and failure modes.",
 	effectDescription: "These typed tuples multiply event ingress",
-	upgradeTitle: "Yoneda Logging",
-	upgradeDescription: "Every observable row is represented by all probes into it.",
+	upgradeTitle: "Schema-on-Write",
+	upgradeDescription: "Validate fields during ingestion instead of rediscovering malformed events in every downstream query.",
 	upgradeCost: new Decimal(3),
 	buyableTitle: "Empty Rows",
 	buyableResource: "empty rows",
@@ -161,7 +161,7 @@ makeEsotericLayer({
 	hotkey: "t",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "rel",
 	name: "Relation",
 	symbol: "Rel",
@@ -174,8 +174,8 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("tup")},
 	boostedBy: ["sch", "stat"],
 	branches: ["tup"],
-	definition: "A relation is a finite extension of a predicate, pretending hard enough to be a table.",
-	flavor: "Codd looks at the row store, removes the ordering, and calls the remaining anxiety algebra.",
+	definition: "A relation is a set of tuples over named attributes, the formal core behind tables and query results.",
+	flavor: "Codd removes physical row order and leaves keys, dependencies, joins, projection, and a lot of useful discipline.",
 	effectDescription: "Relations multiply tuple normalization",
 	upgradeTitle: "First Normal Form",
 	upgradeDescription: "Ban nested attributes until the BI tool invents JSON columns again.",
@@ -185,11 +185,11 @@ makeEsotericLayer({
 	buyableBase: 2.25,
 	buyablePower: 0.8,
 	milestoneAt: 8,
-	milestoneText: "Projection stops duplicating columns just to feel something.",
+	milestoneText: "Projection and selection become first-class operations instead of spreadsheet habits.",
 	hotkey: "r",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "sch",
 	name: "Schema",
 	symbol: "Sch",
@@ -202,25 +202,25 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("rel")},
 	boostedBy: ["cat", "onto"],
 	branches: ["rel"],
-	definition: "A schema is a presentation of relations by names, constraints, migrations, and regrets.",
-	flavor: "DDL is just ontology with sharper edges and fewer committee meetings.",
+	definition: "A schema names relations, columns, data types, constraints, indexes, and ownership boundaries.",
+	flavor: "DDL is where product assumptions become production contracts.",
 	effectDescription: "Schemas multiply relation materialization",
-	upgradeTitle: "Commuting Diagram DDL",
-	upgradeDescription: "Foreign keys become arrows; migration failures become non-commuting squares.",
+	upgradeTitle: "Foreign Key Constraints",
+	upgradeDescription: "Make relationships explicit enough for integrity checks, joins, and modeling tools to trust them.",
 	upgradeCost: new Decimal(2),
-	buyableTitle: "Pullback Constraints",
-	buyableResource: "pullback constraints",
+	buyableTitle: "Check Constraints",
+	buyableResource: "check constraints",
 	buyableBase: 2,
 	buyablePower: 1.1,
 	milestoneAt: 6,
-	milestoneText: "Every dimension table now has a universal property.",
+	milestoneText: "Dimension tables become reusable instead of being rebuilt in every dashboard.",
 	hotkey: "s",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "cat",
 	name: "Catalog",
-	symbol: "Cat",
+	symbol: "Catlg",
 	position: 0,
 	row: 3,
 	color: dataColors.storage,
@@ -230,22 +230,22 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("sch")},
 	boostedBy: ["db"],
 	branches: ["sch", "stat"],
-	definition: "A catalog is metadata pretending not to be production data.",
-	flavor: "System tables observe user tables, and immediately become user tables for the optimizer.",
+	definition: "A catalog stores metadata about schemas, tables, columns, indexes, statistics, privileges, and lineage.",
+	flavor: "Catalog data is operational: query planners, governance tools, and BI explorers all depend on it.",
 	effectDescription: "Catalogs multiply schema discovery",
-	upgradeTitle: "Information Schema Recursion",
-	upgradeDescription: "Ask the catalog about the catalog until it gives you a plan.",
+	upgradeTitle: "Information Schema",
+	upgradeDescription: "Expose standard metadata views so tools can discover tables without hand-maintained config.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Statistics Objects",
 	buyableResource: "statistics objects",
 	buyableBase: 2.5,
 	buyablePower: 1,
 	milestoneAt: 4,
-	milestoneText: "The data dictionary starts emitting useful lies.",
+	milestoneText: "The data dictionary becomes complete enough for humans and planners to use.",
 	hotkey: "c",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "db",
 	name: "Database",
 	symbol: "DB",
@@ -258,24 +258,24 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("cat")},
 	boostedBy: ["exec"],
 	branches: ["cat"],
-	definition: "A database is a pact between logical purity and cache lines.",
-	flavor: "It contains relations, catalogs, locks, pages, histograms, and one query everyone is afraid to touch.",
+	definition: "A database combines logical models with storage, transactions, indexes, catalogs, and execution engines.",
+	flavor: "Relations are clean; databases add pages, locks, WAL, compaction, memory pressure, and operational reality.",
 	effectDescription: "Databases multiply the whole storage spine",
-	upgradeTitle: "MVCC Mythology",
-	upgradeDescription: "Transactions branch the timeline and call it isolation.",
+	upgradeTitle: "MVCC Snapshots",
+	upgradeDescription: "Serve consistent reads while writes continue, with vacuum debt waiting in the background.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Buffer Pages",
 	buyableResource: "buffer pages",
 	buyableBase: 3,
 	buyablePower: 1.2,
 	milestoneAt: 3,
-	milestoneText: "The database admits dashboards are write-heavy workloads for human attention.",
+	milestoneText: "Operational constraints now matter as much as logical correctness.",
 	hotkey: "d",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "alg",
-	name: "Codd Algebra",
+	name: "Relational Algebra",
 	symbol: "RA",
 	position: -2,
 	row: 1,
@@ -286,22 +286,22 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("tup")},
 	boostedBy: ["qry", "opt"],
 	branches: ["tup"],
-	definition: "Codd algebra composes selection, projection, joins, union, difference, and renaming into dashboard incantations.",
-	flavor: "The rows do not move. The symbols move, and then the invoice arrives.",
+	definition: "Relational algebra composes selection, projection, joins, union, difference, aggregation, and renaming.",
+	flavor: "SQL gets lowered into algebra so equivalence rules can simplify and reorder work.",
 	effectDescription: "Algebra terms multiply tuple rewriting",
 	upgradeTitle: "Rename Operator",
-	upgradeDescription: "The hardest problem in computer science becomes a primitive operation.",
+	upgradeDescription: "Track attribute names through derived relations so later joins do not become ambiguous.",
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Join Trees",
 	buyableResource: "join trees",
 	buyableBase: 2.2,
 	buyablePower: 0.9,
 	milestoneAt: 8,
-	milestoneText: "Selection pushdown starts happening before anyone says MapReduce.",
+	milestoneText: "Selection pushdown removes rows before the expensive operators see them.",
 	hotkey: "a",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "qry",
 	name: "Query",
 	symbol: "SQL",
@@ -314,11 +314,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("alg")},
 	boostedBy: ["opt", "ds"],
 	branches: ["alg"],
-	definition: "A query is declarative intent with an implicit threat: produce this relation, but do not tell me how.",
-	flavor: "The SELECT list is calm. The FROM clause contains a small distributed systems incident.",
+	definition: "A query describes the result relation while leaving access paths, join order, and physical operators open.",
+	flavor: "The SELECT list reads like intent; the FROM clause determines whether the system has a long afternoon.",
 	effectDescription: "Queries multiply algebra lowering",
 	upgradeTitle: "Correlated Subquery",
-	upgradeDescription: "Turn lexical scope into cardinality panic.",
+	upgradeDescription: "Reference outer rows from inner expressions and give the optimizer a decorrelation problem.",
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Common Table Expressions",
 	buyableResource: "CTEs",
@@ -329,7 +329,7 @@ makeEsotericLayer({
 	hotkey: "q",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "stat",
 	name: "Table Statistics",
 	symbol: "Stats",
@@ -342,8 +342,8 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("tup")},
 	boostedBy: ["cat", "opt"],
 	branches: ["tup"],
-	definition: "Table statistics summarize distributions so the optimizer can be confidently wrong.",
-	flavor: "Equi-depth histograms, most-common values, null fractions, correlation, and a prayer against skew.",
+	definition: "Table statistics summarize cardinality, value distributions, null fractions, correlation, and data skew.",
+	flavor: "Histograms, most-common values, and distinct-count estimates are small summaries with large consequences.",
 	effectDescription: "Histograms multiply tuple sampling",
 	upgradeTitle: "NDV Estimator",
 	upgradeDescription: "Count distinct values by not counting most of them.",
@@ -353,11 +353,11 @@ makeEsotericLayer({
 	buyableBase: 2,
 	buyablePower: 1.15,
 	milestoneAt: 8,
-	milestoneText: "The planner discovers that uniform distribution was a coping mechanism.",
+	milestoneText: "The planner stops assuming uniform distributions for obviously skewed columns.",
 	hotkey: "h",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "opt",
 	name: "Query Optimizer",
 	symbol: "Opt",
@@ -370,11 +370,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("qry")},
 	boostedBy: ["stat", "exec"],
 	branches: ["qry", "stat"],
-	definition: "A query optimizer searches equivalent algebra for the least embarrassing physical plan.",
-	flavor: "Dynamic programming, cardinality estimates, cost models, bushy joins, and one catastrophic nested loop.",
+	definition: "A query optimizer searches equivalent logical plans and chooses physical operators using estimated cost.",
+	flavor: "Dynamic programming, cardinality estimates, access paths, bushy joins, and one catastrophic nested loop.",
 	effectDescription: "Plans multiply query execution",
 	upgradeTitle: "Volcano Memo",
-	upgradeDescription: "Memoize equivalent expressions until exploration resembles theology.",
+	upgradeDescription: "Memoize equivalent expressions so cost-based search can compare alternatives directly.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Join Reorderings",
 	buyableResource: "join reorderings",
@@ -385,7 +385,7 @@ makeEsotericLayer({
 	hotkey: "o",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "ds",
 	name: "Data Set",
 	symbol: "DS",
@@ -398,50 +398,50 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("qry")},
 	boostedBy: ["onto", "viz"],
 	branches: ["qry"],
-	definition: "A data set is a query result with lineage, freshness, owners, and a Slack channel.",
-	flavor: "It is not a table. It is a promise that someone else can join against it later.",
+	definition: "A data set is a governed query result with lineage, freshness, owners, documentation, and consumers.",
+	flavor: "It is not just a table; it is a reusable contract for downstream analytics.",
 	effectDescription: "Data sets multiply query reuse",
-	upgradeTitle: "Lineage Functor",
-	upgradeDescription: "Map every column back through transformations until accountability appears.",
+	upgradeTitle: "Column Lineage",
+	upgradeDescription: "Trace output fields back through transforms so ownership and impact analysis are possible.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Materializations",
 	buyableResource: "materializations",
 	buyableBase: 2.25,
 	buyablePower: 1.1,
 	milestoneAt: 4,
-	milestoneText: "Freshness SLAs become executable guilt.",
+	milestoneText: "Freshness SLAs become visible enough to be enforced.",
 	hotkey: "x",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "onto",
-	name: "Ontology",
-	symbol: "Ont",
+	name: "Business Ontology",
+	symbol: "Biz",
 	position: -1,
 	row: 4,
 	color: dataColors.semantic,
 	requires: new Decimal(2),
-	resource: "ontologies",
+	resource: "business concepts",
 	baseResource: "data sets",
 	baseAmount() {return layerPoints("ds")},
 	boostedBy: ["sem"],
 	branches: ["ds", "sch"],
-	definition: "An ontology declares the business universe: entities, measures, dimensions, roles, and sanctioned ambiguity.",
-	flavor: "Every metric is a class, every dashboard filter is a morphism, every stakeholder is an inconsistent model.",
-	effectDescription: "Ontologies multiply semantic compilation",
-	upgradeTitle: "OWL-ish Metric Logic",
-	upgradeDescription: "Assert that revenue is both additive and absolutely not additive across this one dimension.",
+	definition: "A business ontology names entities, events, measures, dimensions, ownership, and allowed relationships.",
+	flavor: "Customer, account, booking, revenue, churn, active user: each term needs a definition before the chart does.",
+	effectDescription: "Business concepts multiply semantic compilation",
+	upgradeTitle: "Entity Resolution",
+	upgradeDescription: "Connect source-system identifiers into stable business entities before metrics depend on them.",
 	upgradeCost: new Decimal(1),
-	buyableTitle: "Concept Lattices",
-	buyableResource: "concept lattices",
+	buyableTitle: "Metric Definitions",
+	buyableResource: "metric definitions",
 	buyableBase: 2.5,
 	buyablePower: 1.25,
 	milestoneAt: 3,
-	milestoneText: "The semantic graph starts rejecting contradictory KPI definitions.",
+	milestoneText: "The model starts rejecting contradictory KPI definitions.",
 	hotkey: "l",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "sem",
 	name: "Semantic Layer",
 	symbol: "Sem",
@@ -450,15 +450,15 @@ makeEsotericLayer({
 	color: dataColors.semantic,
 	requires: new Decimal(2),
 	resource: "semantic layers",
-	baseResource: "ontologies",
+	baseResource: "business concepts",
 	baseAmount() {return layerPoints("onto")},
 	boostedBy: ["dash"],
 	branches: ["onto"],
-	definition: "A semantic layer compiles ontology, metrics, permissions, and dialect quirks into reusable meaning.",
-	flavor: "It is a compiler whose target architecture is organizational consensus.",
+	definition: "A semantic layer exposes governed metrics, dimensions, permissions, and SQL generation across tools.",
+	flavor: "It turns agreed business definitions into reusable queries for dashboards, notebooks, and APIs.",
 	effectDescription: "Semantic layers multiply dashboard correctness",
-	upgradeTitle: "Metric Normal Form",
-	upgradeDescription: "Every measure has exactly one canonical definition and several political aliases.",
+	upgradeTitle: "Metric Contract",
+	upgradeDescription: "Define grain, filters, owners, allowed dimensions, and freshness expectations for each measure.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Business Terms",
 	buyableResource: "business terms",
@@ -469,7 +469,7 @@ makeEsotericLayer({
 	hotkey: "m",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "viz",
 	name: "Visualization Grammar",
 	symbol: "Viz",
@@ -482,11 +482,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("tup")},
 	boostedBy: ["panel", "dash"],
 	branches: ["tup"],
-	definition: "A visualization grammar maps data fields to marks, channels, scales, guides, facets, and interpretive traps.",
-	flavor: "Bar, line, area, point, bin, aggregate, encode, render, misread.",
+	definition: "A visualization grammar maps fields to marks, channels, scales, guides, facets, transforms, and layouts.",
+	flavor: "Vega-Lite, ggplot, and similar grammars make chart construction explicit enough to reason about.",
 	effectDescription: "Marks multiply visual encoding",
 	upgradeTitle: "Grammar of Graphics",
-	upgradeDescription: "Separate data, aesthetics, geometry, statistics, scales, and uncomfortable defaults.",
+	upgradeDescription: "Separate data, encodings, marks, statistical transforms, scales, coordinates, and guides.",
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Scales",
 	buyableResource: "scales",
@@ -497,7 +497,7 @@ makeEsotericLayer({
 	hotkey: "v",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "panel",
 	name: "Panel",
 	symbol: "Panel",
@@ -510,11 +510,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("viz")},
 	boostedBy: ["dash"],
 	branches: ["viz", "ds"],
-	definition: "A panel is a visualization plus queries, thresholds, layout constraints, and suspiciously specific colors.",
-	flavor: "It is where grammar meets pixels and business review comments.",
+	definition: "A panel combines one visual, its query, thresholds, filters, title, layout, and interaction state.",
+	flavor: "Panel design is where chart grammar meets dashboard review, alert thresholds, and limited screen space.",
 	effectDescription: "Panels multiply mark composition",
-	upgradeTitle: "Facet Monad",
-	upgradeDescription: "Duplicate a chart across dimensions and pretend the result is navigation.",
+	upgradeTitle: "Small Multiples",
+	upgradeDescription: "Repeat the same visual across dimension values for comparison without changing encodings.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Encodings",
 	buyableResource: "encodings",
@@ -525,7 +525,7 @@ makeEsotericLayer({
 	hotkey: "p",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "dash",
 	name: "Dashboard",
 	symbol: "Dash",
@@ -538,22 +538,22 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("panel")},
 	boostedBy: ["sem"],
 	branches: ["panel", "sem"],
-	definition: "A dashboard is a small declarative operating system for management attention.",
-	flavor: "Refresh schedules, parameters, drill paths, pixel grids, RBAC, and the illusion of one truth.",
+	definition: "A dashboard assembles panels, filters, parameters, drill paths, access control, and refresh schedules.",
+	flavor: "The surface is visual, but the product is a workflow for monitoring, diagnosis, and decision making.",
 	effectDescription: "Dashboards multiply the finished analytics surface",
-	upgradeTitle: "Crossfilter Adjunction",
-	upgradeDescription: "Every interaction has a left and right adjoint, and one of them resets the date range.",
+	upgradeTitle: "Crossfilter Interactions",
+	upgradeDescription: "Use selections in one panel to filter related panels through shared dimensions.",
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Drill Paths",
 	buyableResource: "drill paths",
 	buyableBase: 2.5,
 	buyablePower: 1.2,
 	milestoneAt: 3,
-	milestoneText: "The executive view finally respects the ontology.",
+	milestoneText: "The executive view finally respects the metric definitions.",
 	hotkey: "b",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "simd",
 	name: "SIMD Instruction",
 	symbol: "SIMD",
@@ -566,11 +566,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("tup")},
 	boostedBy: ["vec", "exec"],
 	branches: ["tup"],
-	definition: "A SIMD instruction applies one operation to many lanes and calls the result obvious in hindsight.",
-	flavor: "AVX, masks, gathers, shuffles, saturated arithmetic, and the profound sadness of misalignment.",
+	definition: "A SIMD instruction applies one operation across multiple data lanes in a CPU vector register.",
+	flavor: "AVX, masks, gathers, shuffles, predicate vectors, and the cost of misaligned memory.",
 	effectDescription: "SIMD instructions multiply tuple scanning",
-	upgradeTitle: "Lane Mask Algebra",
-	upgradeDescription: "Predicates become bitmasks; branches become data.",
+	upgradeTitle: "Predicate Masks",
+	upgradeDescription: "Represent filter results as lane masks so scans can avoid scalar branches.",
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Lanes",
 	buyableResource: "lanes",
@@ -581,7 +581,7 @@ makeEsotericLayer({
 	hotkey: "i",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "vec",
 	name: "Column Vector",
 	symbol: "Vec",
@@ -594,11 +594,11 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("simd")},
 	boostedBy: ["exec"],
 	branches: ["simd"],
-	definition: "A column vector is a cache-aligned confession that row orientation was for humans.",
-	flavor: "Validity bitmaps, dictionary encodings, offsets buffers, and enough endian anxiety to slow a scan.",
+	definition: "A column vector stores one field for many rows, usually with validity bitmaps and compact encodings.",
+	flavor: "Columnar batches favor scans, compression, predicate pushdown, and vectorized execution.",
 	effectDescription: "Column vectors multiply SIMD packing",
-	upgradeTitle: "Arrow Buffer Theology",
-	upgradeDescription: "Separate values from validity and discover that nulls have physical layout.",
+	upgradeTitle: "Arrow Buffers",
+	upgradeDescription: "Separate values, offsets, and validity so columnar data can move across systems efficiently.",
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Cache Lines",
 	buyableResource: "cache lines",
@@ -609,7 +609,7 @@ makeEsotericLayer({
 	hotkey: "e",
 })
 
-makeEsotericLayer({
+makeAnalyticsLayer({
 	id: "exec",
 	name: "Vectorized Executor",
 	symbol: "Exec",
@@ -622,7 +622,7 @@ makeEsotericLayer({
 	baseAmount() {return layerPoints("vec")},
 	boostedBy: ["opt", "db"],
 	branches: ["vec", "opt", "db"],
-	definition: "A vectorized executor turns physical plans into batches of columnar work.",
+	definition: "A vectorized executor evaluates physical plans in column batches instead of tuple-at-a-time loops.",
 	flavor: "Tight loops, selection vectors, late materialization, fused kernels, and profiles full of cache misses.",
 	effectDescription: "Executors multiply physical execution",
 	upgradeTitle: "Late Materialization",
