@@ -32,15 +32,15 @@ function spendSource(source, cost) {
 	player[source].points = player[source].points.sub(cost)
 }
 
-function analyticsCostReduction(reducers, targetLayer) {
+const targetedDiscounts = []
+
+function targetedCostReduction(targetLayer, targetId) {
 	let mult = new Decimal(1)
-	if (!reducers) return mult
-	for (let index = 0; index < reducers.length; index++) {
-		let layer = reducers[index]
-		if (!player[layer]) continue
-		if (!layers[layer] || !layers[layer].buyables || !layers[layer].buyables[21]) continue
-		if (targetLayer && layers[targetLayer] && layers[layer].row <= layers[targetLayer].row) continue
-		mult = mult.times(Decimal.pow(0.9, getBuyableAmount(layer, 21)))
+	for (let index = 0; index < targetedDiscounts.length; index++) {
+		let discount = targetedDiscounts[index]
+		if (discount.targetLayer != targetLayer || discount.targetId != targetId) continue
+		if (!player[discount.sourceLayer]) continue
+		mult = mult.times(Decimal.pow(discount.rate, getBuyableAmount(discount.sourceLayer, discount.sourceId)))
 	}
 	if (mult.lt(0.1)) return new Decimal(0.1)
 	return mult
@@ -85,7 +85,7 @@ function makeAnalyticsLayer(config) {
 			title: config.buyableTitle,
 			cost(x) {
 				let cost = Decimal.pow(config.buyableBase || 2, x.add(1)).times(buyableCostScale)
-				cost = cost.times(analyticsCostReduction(config.costReducedBy, config.id))
+				cost = cost.times(targetedCostReduction(config.id, 11))
 				return cost.max(1).floor()
 			},
 			effect(x) {
@@ -255,7 +255,7 @@ makeAnalyticsLayer({
 	baseResource: "events",
 	baseAmount() {return player.points},
 	resetLayer: true,
-	boostedBy: ["rel", "alg", "fmt", "stat", "viz", "net", "simd"],
+	boostedBy: ["rel", "alg"],
 	definition: "A row is one event shaped into tabular form: values aligned to attributes and ready for analytics systems.",
 	flavor: "Raw events become rows once ingestion assigns timestamps, identifiers, source names, and failure modes.",
 	effectDescription: "Rows multiply event ingress",
@@ -265,7 +265,6 @@ makeAnalyticsLayer({
 	buyableTitle: "Typed Tuple",
 	buyableResource: "typed tuples",
 	buyableCost: new Decimal(0.5),
-	costReducedBy: ["alg", "fmt", "viz", "net", "simd"],
 	buyableBase: 2,
 	buyablePower: 0.75,
 	passiveGeneration: 0.25,
@@ -329,7 +328,7 @@ rowUnlockUpgrade(18, "Vector Register", "SIMD Instructions")
 layers.row.buyables[12] = {
 	title: "Event Source",
 	cost(x) {
-		return Decimal.pow(3, x.add(1)).times(15).times(analyticsCostReduction(["alg", "fmt", "viz", "net", "simd"], "row")).max(1).floor()
+		return Decimal.pow(3, x.add(1)).times(15).times(targetedCostReduction("row", 12)).max(1).floor()
 	},
 	effect(x) {
 		return x.mul(0.25)
@@ -373,7 +372,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Candidate Keys",
 	buyableResource: "candidate keys",
-	costReducedBy: ["sch", "cat"],
 	buyableBase: 2.25,
 	buyablePower: 0.8,
 	milestoneAt: 8,
@@ -405,7 +403,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Check Constraints",
 	buyableResource: "check constraints",
-	costReducedBy: ["cat", "onto"],
 	buyableBase: 2,
 	buyablePower: 1.1,
 	milestoneAt: 6,
@@ -437,7 +434,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Statistics Objects",
 	buyableResource: "statistics objects",
-	costReducedBy: ["met", "sem"],
 	buyableBase: 2.5,
 	buyablePower: 1,
 	milestoneAt: 4,
@@ -468,7 +464,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Buffer Pages",
 	buyableResource: "buffer pages",
-	costReducedBy: ["dist", "onto"],
 	buyableBase: 3,
 	buyablePower: 1.2,
 	autobuyOnMilestone: true,
@@ -503,8 +498,7 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Table Format",
 	buyableResource: "table formats",
-	buyableEffectText: "row gain, storage interoperability, and file skipping",
-	costReducedBy: ["flight", "db", "exec"],
+	buyableEffectText: "storage interoperability and file skipping",
 	buyableBase: 2.5,
 	buyablePower: 1.2,
 	autobuyOnMilestone: true,
@@ -538,7 +532,6 @@ makeAnalyticsLayer({
 	buyableTitle: "Join Trees",
 	buyableResource: "join trees",
 	buyableCost: new Decimal(10),
-	costReducedBy: ["qry", "exec", "opt"],
 	buyableBase: 2.2,
 	buyablePower: 0.9,
 	milestoneAt: 8,
@@ -569,7 +562,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Common Table Expressions",
 	buyableResource: "CTEs",
-	costReducedBy: ["ds", "exec", "opt"],
 	buyableBase: 2,
 	buyablePower: 1,
 	milestoneAt: 6,
@@ -602,7 +594,6 @@ makeAnalyticsLayer({
 	buyableTitle: "Most Common Values",
 	buyableResource: "MCV buckets",
 	buyableEffectText: "cardinality estimates",
-	costReducedBy: ["cat", "opt"],
 	buyableBase: 2,
 	buyablePower: 1.15,
 	autobuyOnMilestone: true,
@@ -635,7 +626,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Join Reorderings",
 	buyableResource: "join reorderings",
-	costReducedBy: ["dist"],
 	buyableBase: 2.75,
 	buyablePower: 1.05,
 	milestoneAt: 4,
@@ -666,7 +656,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Materializations",
 	buyableResource: "materializations",
-	costReducedBy: ["met", "sem"],
 	buyableBase: 2.25,
 	buyablePower: 1.1,
 	milestoneAt: 4,
@@ -698,7 +687,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "KPI Definitions",
 	buyableResource: "KPI definitions",
-	costReducedBy: ["sem", "onto"],
 	buyableBase: 2.5,
 	buyablePower: 1.25,
 	milestoneAt: 3,
@@ -730,7 +718,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Business Terms",
 	buyableResource: "business terms",
-	costReducedBy: ["dash", "onto"],
 	buyableBase: 2,
 	buyablePower: 1.35,
 	milestoneAt: 3,
@@ -794,7 +781,7 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(2),
 	buyableTitle: "Visual Mark",
 	buyableResource: "marks",
-	buyableEffectText: "row gain, visual encoding, and panel composition",
+	buyableEffectText: "visual encoding and panel composition",
 	buyableCost: new Decimal(10),
 	buyableBase: 2,
 	buyablePower: 0.95,
@@ -827,7 +814,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Encodings",
 	buyableResource: "encodings",
-	costReducedBy: ["dash"],
 	buyableBase: 2.4,
 	buyablePower: 1.15,
 	milestoneAt: 4,
@@ -859,7 +845,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Drill Paths",
 	buyableResource: "drill paths",
-	costReducedBy: ["onto"],
 	buyableBase: 2.5,
 	buyablePower: 1.2,
 	milestoneAt: 3,
@@ -893,7 +878,7 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(2),
 	buyableTitle: "SIMD Instruction",
 	buyableResource: "SIMD instructions",
-	buyableEffectText: "row gain, vector packing, and executor throughput",
+	buyableEffectText: "vector packing and executor throughput",
 	buyableBase: 2,
 	buyablePower: 1.2,
 	autobuyOnMilestone: true,
@@ -926,7 +911,6 @@ makeAnalyticsLayer({
 	buyableTitle: "Cache Lines",
 	buyableResource: "cache lines",
 	buyableCost: new Decimal(1),
-	costReducedBy: ["exec"],
 	buyableBase: 2.25,
 	buyablePower: 1.1,
 	milestoneAt: 6,
@@ -958,7 +942,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Operator Kernels",
 	buyableResource: "operator kernels",
-	costReducedBy: ["opt", "db", "dist"],
 	buyableBase: 2.75,
 	buyablePower: 1.3,
 	autobuyOnMilestone: true,
@@ -993,7 +976,7 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Network Link",
 	buyableResource: "network links",
-	buyableEffectText: "row gain and data movement",
+	buyableEffectText: "data movement",
 	buyableBase: 2.75,
 	buyablePower: 1.2,
 	autobuyOnMilestone: true,
@@ -1025,7 +1008,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "Record Batch Stream",
 	buyableResource: "record batch streams",
-	costReducedBy: ["dist"],
 	buyableBase: 2.75,
 	buyablePower: 1.25,
 	milestoneAt: 3,
@@ -1056,7 +1038,6 @@ makeAnalyticsLayer({
 	upgradeCost: new Decimal(1),
 	buyableTitle: "MapReduce Job",
 	buyableResource: "MapReduce jobs",
-	costReducedBy: ["onto"],
 	buyableBase: 3,
 	buyablePower: 1.25,
 	milestoneAt: 3,
@@ -1113,7 +1094,7 @@ function addDeepBuyable(layer, id, config) {
 		title: config.title,
 		cost(x) {
 			let cost = Decimal.pow(config.base || 2, x.add(1)).times(config.cost || 1)
-			cost = cost.times(analyticsCostReduction(config.costReducedBy, layer))
+			cost = cost.times(targetedCostReduction(layer, id))
 			return cost.max(1).floor()
 		},
 		effect(x) {
@@ -1157,18 +1138,30 @@ function addDeepUpgrade(layer, id, config) {
 	}
 }
 
-function addDiscountBuyable(layer, title, resource, config = {}) {
-	layers[layer].buyables[21] = {
+function buyableName(layer, id) {
+	if (layers[layer] && layers[layer].buyables && layers[layer].buyables[id]) return layers[layer].buyables[id].title
+	return "buyable " + id
+}
+
+function addTargetedDiscountBuyable(layer, id, title, resource, targetLayer, targetId, config = {}) {
+	targetedDiscounts.push({
+		sourceLayer: layer,
+		sourceId: id,
+		targetLayer,
+		targetId,
+		rate: config.rate || 0.9,
+	})
+	layers[layer].buyables[id] = {
 		title,
 		cost(x) {
 			return Decimal.pow(config.base || 2, x.add(1)).times(config.cost || 2).max(1).floor()
 		},
 		effect(x) {
-			return Decimal.pow(0.9, x)
+			return Decimal.pow(config.rate || 0.9, x)
 		},
 		display() {
 			return "You have " + formatWhole(getBuyableAmount(this.layer, this.id)) + " " + resource
-				+ "<br><br>Effect: " + formatSmall(directBuyableEffect(this.layer, this.id)) + "x earlier-node costs"
+				+ "<br><br>Effect: " + formatSmall(directBuyableEffect(this.layer, this.id)) + "x " + buyableName(targetLayer, targetId) + " cost"
 				+ "<br><br>Cost: " + format(tmp[this.layer].buyables[this.id].cost) + " " + tmp[this.layer].resource
 		},
 		canAfford() {
@@ -1184,26 +1177,17 @@ function addDiscountBuyable(layer, title, resource, config = {}) {
 	}
 }
 
-addDiscountBuyable("alg", "Projection Pruner", "projection pruners")
-addDiscountBuyable("fmt", "Page Footer Index", "page footer indexes")
-addDiscountBuyable("viz", "Field Sampler", "field samplers")
-addDiscountBuyable("net", "Connection Pool", "connection pools")
-addDiscountBuyable("simd", "Vectorized Parser", "vectorized parsers")
-addDiscountBuyable("sch", "Constraint Propagator", "constraint propagators")
-addDiscountBuyable("stat", "Selectivity Cache", "selectivity caches")
-addDiscountBuyable("cat", "Catalog Cache", "catalog caches")
-addDiscountBuyable("qry", "Predicate Pushdown Rule", "predicate pushdown rules")
-addDiscountBuyable("ds", "Incremental Refresh", "incremental refresh plans")
-addDiscountBuyable("met", "Metric Rewrite", "metric rewrites")
-addDiscountBuyable("sem", "Semantic Cache", "semantic caches")
-addDiscountBuyable("dash", "Filter State Cache", "filter state caches")
-addDiscountBuyable("onto", "Identity Index", "identity indexes")
-addDiscountBuyable("vec", "Validity Bitmap", "validity bitmaps")
-addDiscountBuyable("exec", "Kernel Fusion Rule", "kernel fusion rules")
-addDiscountBuyable("opt", "Cost Bound", "cost bounds")
-addDiscountBuyable("flight", "Endpoint Directory", "endpoint directories")
-addDiscountBuyable("db", "Buffer Eviction Policy", "buffer eviction policies")
-addDiscountBuyable("dist", "Placement Policy", "placement policies")
+addTargetedDiscountBuyable("fmt", 21, "Page Footer Index", "page footer indexes", "row", 11)
+addTargetedDiscountBuyable("simd", 21, "Vectorized Parser", "vectorized parsers", "row", 12)
+addTargetedDiscountBuyable("sch", 21, "Constraint Propagator", "constraint propagators", "rel", 11)
+addTargetedDiscountBuyable("qry", 21, "Predicate Pushdown Rule", "predicate pushdown rules", "alg", 11)
+addTargetedDiscountBuyable("cat", 21, "Catalog Cache", "catalog caches", "sch", 11)
+addTargetedDiscountBuyable("met", 21, "Metric Rewrite", "metric rewrites", "ds", 11)
+addTargetedDiscountBuyable("exec", 21, "Kernel Fusion Rule", "kernel fusion rules", "vec", 11)
+addTargetedDiscountBuyable("opt", 21, "Cost Bound", "cost bounds", "exec", 11)
+addTargetedDiscountBuyable("dash", 21, "Filter State Cache", "filter state caches", "panel", 11)
+addTargetedDiscountBuyable("onto", 21, "Identity Index", "identity indexes", "sem", 11)
+addTargetedDiscountBuyable("dist", 21, "Placement Policy", "placement policies", "db", 11)
 
 addDeepBuyable("qry", 12, {
 	title: "Prepared Statement Cache",
@@ -1213,7 +1197,6 @@ addDeepBuyable("qry", 12, {
 	cost: new Decimal(12),
 	base: 2.4,
 	power: 0.85,
-	costReducedBy: ["cat", "opt"],
 	unlocked() {return hasMilestone("qry", 0) || layerPoints("exec").gt(0)},
 })
 
@@ -1225,7 +1208,6 @@ addDeepBuyable("stat", 12, {
 	cost: new Decimal(8),
 	base: 2.2,
 	power: 0.75,
-	costReducedBy: ["cat", "opt"],
 	unlocked() {return hasUpgrade("stat", 11) || layerPoints("opt").gt(0)},
 })
 
@@ -1237,7 +1219,6 @@ addDeepBuyable("cat", 12, {
 	cost: new Decimal(6),
 	base: 2.4,
 	power: 0.8,
-	costReducedBy: ["met", "sem"],
 	unlocked() {return hasUpgrade("cat", 11) || layerPoints("sem").gt(0)},
 })
 
@@ -1249,7 +1230,6 @@ addDeepBuyable("exec", 12, {
 	cost: new Decimal(4),
 	base: 2.2,
 	power: 0.9,
-	costReducedBy: ["opt", "db"],
 	unlocked() {return hasMilestone("exec", 0) || layerPoints("opt").gt(0)},
 })
 
@@ -1261,7 +1241,6 @@ addDeepBuyable("opt", 12, {
 	cost: new Decimal(5),
 	base: 2.35,
 	power: 0.85,
-	costReducedBy: ["dist"],
 	unlocked() {return hasUpgrade("opt", 11) || layerPoints("dist").gt(0)},
 })
 
@@ -1273,7 +1252,6 @@ addDeepBuyable("db", 12, {
 	cost: new Decimal(2),
 	base: 2.6,
 	power: 1.1,
-	costReducedBy: ["dist", "onto"],
 	unlocked() {return hasUpgrade("db", 11) || hasMilestone("db", 0)},
 })
 
@@ -1285,7 +1263,6 @@ addDeepBuyable("sem", 12, {
 	cost: new Decimal(3),
 	base: 2.4,
 	power: 1,
-	costReducedBy: ["dash", "onto"],
 	unlocked() {return hasUpgrade("sem", 11) || layerPoints("dash").gt(0)},
 })
 
@@ -1297,7 +1274,6 @@ addDeepBuyable("dash", 12, {
 	cost: new Decimal(2),
 	base: 2.5,
 	power: 0.9,
-	costReducedBy: ["onto"],
 	unlocked() {return hasUpgrade("dash", 11) || layerPoints("dist").gt(0)},
 })
 
@@ -1320,7 +1296,6 @@ addDeepBuyable("flight", 12, {
 	cost: new Decimal(3),
 	base: 2.25,
 	power: 0.9,
-	costReducedBy: ["dist"],
 	unlocked() {return hasUpgrade("flight", 11) || layerPoints("dist").gt(0)},
 })
 
@@ -1332,7 +1307,6 @@ addDeepBuyable("dist", 12, {
 	cost: new Decimal(2),
 	base: 2.5,
 	power: 1.2,
-	costReducedBy: ["onto"],
 	unlocked() {return hasUpgrade("dist", 11) || hasMilestone("dist", 0)},
 })
 
@@ -1422,24 +1396,20 @@ layers.dist.upgrades[23] = {
 	unlocked() {return hasUpgrade("dist", 23) || (hasUpgrade("dist", 11) && !hasDistPosture())},
 }
 
-multiplyGain("row", () => lowerRateEffect("alg")
-	.times(lowerRateEffect("fmt"))
-	.times(lowerRateEffect("viz"))
-	.times(lowerRateEffect("net"))
-	.times(lowerRateEffect("simd")))
 multiplyGain("rel", () => lowerRateEffect("sch").times(lowerRateEffect("stat")))
-multiplyGain("db", () => lowerRateEffect("fmt").times(lowerRateEffect("cat")).times(lowerRateEffect("exec")).times(lowerRateEffect("opt")))
-multiplyGain("exec", () => directBuyableEffect("qry", 12).times(directBuyableEffect("exec", 12)))
-multiplyGain("opt", () => directBuyableEffect("stat", 12).times(directBuyableEffect("opt", 12)).times(hasUpgrade("opt", 12) ? upgradeEffect("opt", 12) : 1))
-multiplyGain("db", () => directBuyableEffect("cat", 12).times(directBuyableEffect("db", 12)))
-multiplyGain("sem", () => directBuyableEffect("cat", 12).times(directBuyableEffect("sem", 12)).times(hasUpgrade("sem", 12) ? upgradeEffect("sem", 12) : 1))
-multiplyGain("onto", () => directBuyableEffect("sem", 12).times(directBuyableEffect("onto", 12)).times(hasUpgrade("onto", 12) ? upgradeEffect("onto", 12) : 1))
-multiplyGain("dist", () => directBuyableEffect("flight", 12).times(directBuyableEffect("dist", 12)).times(distPostureEffect()))
+multiplyGain("db", () => lowerRateEffect("fmt").times(lowerRateEffect("cat")))
+multiplyGain("qry", () => directBuyableEffect("exec", 12).sqrt())
+multiplyGain("exec", () => directBuyableEffect("qry", 12).times(directBuyableEffect("opt", 12)))
+multiplyGain("opt", () => directBuyableEffect("stat", 12).times(directBuyableEffect("exec", 12)).times(hasUpgrade("opt", 12) ? upgradeEffect("opt", 12) : 1))
+multiplyGain("db", () => directBuyableEffect("cat", 12).times(directBuyableEffect("dist", 12)))
+multiplyGain("sem", () => directBuyableEffect("cat", 12).times(directBuyableEffect("dash", 12)).times(hasUpgrade("sem", 12) ? upgradeEffect("sem", 12) : 1))
+multiplyGain("onto", () => directBuyableEffect("sem", 12).times(directBuyableEffect("db", 12)).times(hasUpgrade("onto", 12) ? upgradeEffect("onto", 12) : 1))
+multiplyGain("dist", () => directBuyableEffect("flight", 12).times(directBuyableEffect("db", 12)).times(directBuyableEffect("onto", 12)).times(distPostureEffect()))
 
-multiplyEffect("dash", () => directBuyableEffect("sem", 12).times(directBuyableEffect("dash", 12)))
-multiplyEffect("exec", () => directBuyableEffect("qry", 12).times(directBuyableEffect("exec", 12)))
-multiplyEffect("db", () => directBuyableEffect("db", 12))
-multiplyEffect("dist", () => directBuyableEffect("dist", 12).times(hasUpgrade("dist", 23) ? upgradeEffect("dist", 23) : 1))
+multiplyEffect("dash", () => directBuyableEffect("sem", 12).times(directBuyableEffect("onto", 12)))
+multiplyEffect("exec", () => directBuyableEffect("qry", 12).times(directBuyableEffect("opt", 12)))
+multiplyEffect("db", () => directBuyableEffect("cat", 12))
+multiplyEffect("dist", () => directBuyableEffect("flight", 12).times(directBuyableEffect("db", 12)).times(hasUpgrade("dist", 23) ? upgradeEffect("dist", 23) : 1))
 
 multiplyPassive("dist", () => hasUpgrade("dist", 22) ? upgradeEffect("dist", 22).min(4) : new Decimal(1))
 
